@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GPX Compare v2.6</title>
+
+<!-- MapLibre GL JS -->
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+
+<style>
+:root {
+  --bg-main: #202124;
+  --bg-panel: #2b2c30;
+  --bg-card: #1e1f23;
+  --text-main: #ffffff;
+  --text-sub: #aaaaaa;
+  --border-color: #444444;
+  --accent: #1976d2;
+}
+
+[data-theme="light"] {
+  --bg-main: #f0f2f5;
+  --bg-panel: #ffffff;
+  --bg-card: #e4e6eb;
+  --text-main: #050505;
+  --text-sub: #65676b;
+  --border-color: #cccccc;
+  --accent: #1877f2;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;width:100%;font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
+body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--text-main);transition:background .2s, color .2s}
+
+/* Topbar */
+#topbar{padding:8px 12px;background:var(--bg-main);color:var(--text-main);display:flex;gap:8px;align-items:center;flex-wrap:wrap;z-index:1001;flex:none;border-bottom:1px solid var(--border-color)}
+h1{font-size:17px;margin:0 6px 0 0}
+button,.file-label,select,input[type="text"]{border:0;border-radius:6px;padding:7px 11px;background:var(--bg-panel);color:var(--text-main);cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border-color)}
+button:active,.file-label:active{transform:scale(.97)}
+button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+#fileInput{display:none}
+
+/* Modal Clé API */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.hidden{display:none}
+.modal-box{background:var(--bg-panel);border:1px solid var(--border-color);border-radius:10px;padding:20px;max-width:400px;width:100%;box-shadow:0 10px 25px rgba(0,0,0,0.5)}
+.modal-box h3{margin-top:0;font-size:16px}
+.modal-box p{font-size:13px;color:var(--text-sub);line-height:1.4}
+.modal-box input{width:100%;margin:12px 0;padding:8px;font-family:monospace}
+.modal-box .modal-actions{display:flex;justify-content:flex-end;gap:8px}
+
+/* Drag & Drop & Status */
+#drop{margin:6px 10px;padding:8px;border:2px dashed var(--border-color);border-radius:8px;text-align:center;background:var(--bg-card);color:var(--text-sub);font-size:13px;flex:none}
+#drop.drag{border-color:var(--accent);background:var(--bg-panel)}
+#status{font-size:12px;margin:0 10px 4px;color:var(--text-sub);min-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
+
+/* Layout */
+#layout{flex:1;position:relative;width:100%;height:100%;min-height:0;display:flex;overflow:hidden}
+#main-view{flex:1;display:flex;flex-direction:column;position:relative;height:100%;width:100%;min-width:0}
+#map-container{flex:1;position:relative;width:100%;min-height:200px}
+#map{position:absolute;inset:0;width:100%;height:100%}
+
+/* Profil / Controls */
+#profile-container{background:var(--bg-panel);color:var(--text-main);border-top:1px solid var(--border-color);padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex:none;z-index:950}
+#profile-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600}
+#active-track-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+#active-track-stats{font-size:11px;color:var(--text-sub)}
+
+#canvas-wrap{position:relative;width:100%;height:100px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:6px;cursor:crosshair;touch-action:none}
+#elevationCanvas{width:100%;height:100%;display:block}
+
+#tracker-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--bg-card);padding:6px 8px;border-radius:6px;border:1px solid var(--border-color)}
+.control-group{display:flex;align-items:center;gap:4px}
+.control-group button{padding:5px 8px;font-size:12px;background:var(--bg-panel);color:var(--text-main)}
+.control-group button.active{background:var(--accent);color:#fff}
+#trackSlider{flex:1;min-width:120px;height:20px;accent-color:var(--accent);cursor:pointer}
+#tracker-stats-bar{display:flex;gap:10px;font-size:11px;color:var(--text-sub);font-weight:500;width:100%;overflow-x:auto;white-space:nowrap;padding-top:2px}
+
+/* Side panel */
+#side{width:320px;max-width:35%;background:var(--bg-panel);color:var(--text-main);border-left:1px solid var(--border-color);padding:10px;display:flex;flex-direction:column;z-index:1500}
+#sideHeaderHandle{display:none}
+#side h2{font-size:15px;margin:0 0 6px}
+#side-tools{display:flex;gap:6px;margin-bottom:8px}
+#side-tools select{flex:1;font-size:12px;padding:4px 6px}
+#stats{font-size:12px;color:var(--text-sub);margin-bottom:8px;font-weight:500}
+#tracks{flex:1;overflow-y:auto;padding-right:2px}
+
+.empty{color:var(--text-sub);font-size:13px;text-align:center;margin-top:15px}
+.track{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--border-color);cursor:grab;border-radius:4px;background:var(--bg-panel);margin-bottom:4px;user-select:none}
+.track:active{cursor:grabbing}
+.track.dragging{opacity:0.4;border:2px dashed var(--accent)}
+.track.active-track{background:var(--bg-card);border-left:4px solid var(--accent)}
+.swatch{width:12px;height:12px;border-radius:50%;flex:none}
+.track-main{flex:1;min-width:0}
+.track-name{font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track-info{font-size:11px;color:var(--text-sub);margin-top:2px}
+.track-actions{display:flex;gap:4px}
+.track button{padding:3px 6px;font-size:11px;background:var(--bg-card);color:var(--text-main)}
+.track.hidden{opacity:.45}
+
+.mobile-only{display:none}
+
+@media(max-width:700px){
+  #topbar{padding:6px 8px;gap:5px}
+  h1{flex:1 0 100%;margin:0 0 2px;font-size:16px}
+  .mobile-only{display:inline-block}
+  #drop{margin:4px 8px;padding:6px;font-size:12px}
+  #canvas-wrap{height:80px}
+  #side{
+    position:fixed;left:0;right:0;bottom:0;width:100%;max-width:none;height:60vh;
+    border:0;border-top:1px solid var(--border-color);border-radius:14px 14px 0 0;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 18px rgba(0,0,0,.5);transform:translateY(calc(100% - 38px));transition:transform .25s ease-in-out;
+  }
+  #side.open{transform:translateY(0)}
+  #sideHeader{cursor:pointer;padding-bottom:4px}
+  #sideHeaderHandle{display:block;width:36px;height:4px;border-radius:4px;background:var(--text-sub);margin:0 auto 6px}
+}
+</style>
+</head>
+
+<body>
+
+<div id="keyModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>🔑 Configuration MapTiler</h3>
+    <p>Saisis ta clé API MapTiler pour charger les fonds de carte et le relief 3D. Elle sera conservée uniquement dans ton navigateur.</p>
+    <input type="text" id="apiKeyInput" placeholder="Ex: eXamPleKeY123456">
+    <div class="modal-actions">
+      <button id="saveKeyBtn" class="active">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="topbar">
+  <h1>🚴 GPX Compare v2.6</h1>
+  <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
+  <select id="mapStyleSelect">
+    <option value="outdoor-v2">🌲 Rando / Outdoor</option>
+    <option value="satellite">🛰️ Satellite</option>
+    <option value="topo-v2">⛰️ Topographique</option>
+    <option value="streets-v2">🗺️ Route / Ville</option>
+  </select>
+  <select id="themeSelect">
+    <option value="system" selected>💻 Système</option>
+    <option value="dark">🌙 Sombre</option>
+    <option value="light">☀️ Clair</option>
+  </select>
+  <button id="btn3D">📐 3D</button>
+  <button id="btnExportVideo">🎬 Export Vidéo</button>
+  <button id="btnKey">🔑 Clé API</button>
+  <button id="btnFullscreen">⛶ Plein écran</button>
+  <button id="fitBtn">Recentrer</button>
+  <button id="clearBtn">Effacer</button>
+  <button id="toggleSide" class="mobile-only">📋 Sorties</button>
+</div>
+
+<div id="drop">Glisse-dépose tes fichiers GPX ici</div>
+<div id="status"></div>
+
+<div id="layout">
+  <div id="main-view">
+    <div id="map-container">
+      <div id="map"></div>
+    </div>
+    
+    <div id="profile-container">
+      <div id="profile-header">
+        <span id="active-track-name">Aucune sortie active</span>
+        <span id="active-track-stats"></span>
+      </div>
+      
+      <div id="canvas-wrap">
+        <canvas id="elevationCanvas"></canvas>
+      </div>
+
+      <div id="tracker-controls">
+        <div class="control-group">
+          <button id="btnPlay">▶</button>
+          <button id="btnPrev">⏮</button>
+          <button id="btnNext">⏭</button>
+        </div>
+        
+        <input type="range" id="trackSlider" min="0" max="100" value="0" step="0.01" disabled>
+        
+        <div class="control-group">
+          <button id="btnSpeed">x1</button>
+          <select id="camModeSelect">
+            <option value="threshold" selected>🎯 Caméra : Seuil (25°)</option>
+            <option value="smooth">🌀 Caméra : Fluide</option>
+            <option value="fixed">🔒 Caméra : Fixe (Nord)</option>
+            <option value="off">🚫 Caméra : Libre</option>
+          </select>
+        </div>
+
+        <div id="tracker-stats-bar">
+          <span>Distance: <b id="stDist">0.0 km</b></span>
+          <span>Reste: <b id="stRest">0.0 km</b></span>
+          <span>Alt: <b id="stAlt">-- m</b></span>
+          <span>D+: <b id="stDplus">0 m</b></span>
+          <span>Prog: <b id="stProg">0%</b></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside id="side">
+    <div id="sideHeader">
+      <div id="sideHeaderHandle"></div>
+      <h2>Sorties</h2>
+      <div id="side-tools">
+        <select id="sortSelect">
+          <option value="manual">🖐️ Ordre manuel</option>
+          <option value="name">🔤 Nom (A-Z)</option>
+          <option value="dist">📏 Distance</option>
+          <option value="dplus">📈 Dénivelé (D+)</option>
+        </select>
+      </div>
+      <div id="stats"></div>
+    </div>
+    <div id="tracks"><div class="empty">Aucun GPX chargé.</div></div>
+  </aside>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+<script>
+let MAPTILER_KEY = localStorage.getItem('maptiler_api_key') || '';
+
+const keyModal = document.getElementById('keyModal');
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveKeyBtn = document.getElementById('saveKeyBtn');
+const btnKey = document.getElementById('btnKey');
+
+function openKeyModal() {
+  apiKeyInput.value = MAPTILER_KEY;
+  keyModal.classList.remove('hidden');
+}
+
+btnKey.addEventListener('click', openKeyModal);
+
+saveKeyBtn.addEventListener('click', () => {
+  const val = apiKeyInput.value.trim();
+  if (val) {
+    MAPTILER_KEY = val;
+    localStorage.setItem('maptiler_api_key', val);
+    keyModal.classList.add('hidden');
+    initMap();
+  } else {
+    alert('Veuillez saisir une clé valide.');
+  }
+});
+
+const ELE_THRESHOLD = 1.5;
+let is3DMode = false;
+let map = null;
+
+function initMap() {
+  if (!MAPTILER_KEY) {
+    openKeyModal();
+    return;
+  }
+
+  if (map) {
+    map.remove();
+  }
+
+  map = new maplibregl.Map({
+    container: 'map',
+    style: `https://api.maptiler.com/maps/${document.getElementById('mapStyleSelect').value}/style.json?key=${MAPTILER_KEY}`,
+    center: [2.5, 46.6],
+    zoom: 5.5,
+    pitch: 0,
+    bearing: 0,
+    preserveDrawingBuffer: true
+  });
+
+  map.on('load', () => { apply3DTerrain(); restoreTracksOnMap(); });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
+}
+
+function apply3DTerrain() {
+  if (!map || !MAPTILER_KEY) return;
+  if (!map.getSource('maptiler-dem')) {
+    map.addSource('maptiler-dem', {
+      'type': 'raster-dem',
+      'url': `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`,
+      'tileSize': 512
+    });
+  }
+  map.setTerrain({ 'source': 'maptiler-dem', 'exaggeration': 1.2 });
+}
+
+document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
+  if (!map || !MAPTILER_KEY) return;
+  map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${MAPTILER_KEY}`);
+  map.once('style.load', () => { apply3DTerrain(); restoreTracksOnMap(); });
+});
+
+const themeSelect = document.getElementById('themeSelect');
+function applyTheme(theme) {
+  if (theme === 'system') {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+}
+themeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (themeSelect.value === 'system') applyTheme('system');
+});
+
+const colors = ['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b','#6d4c41','#3949ab','#d81b60','#546e7a'];
+let tracks = [], colorIndex = 0;
+let activeTrackId = null;
+
+let trackerMarkerElement = document.createElement('div');
+trackerMarkerElement.style.width = '16px';
+trackerMarkerElement.style.height = '16px';
+trackerMarkerElement.style.backgroundColor = '#00aaff';
+trackerMarkerElement.style.border = '3px solid #ffffff';
+trackerMarkerElement.style.borderRadius = '50%';
+trackerMarkerElement.style.boxShadow = '0 0 10px rgba(0,0,0,0.8)';
+let trackerMarker = null;
+
+let isPlaying = false;
+let playAnimationId = null;
+let currentPointIndex = 0;
+let playSpeed = 1;
+const speeds = [1, 2, 5, 10];
+
+let currentCamBearing = 0;
+const CAM_THRESHOLD_ANGLE = 25;
+
+const fileInput = document.getElementById('fileInput');
+const drop = document.getElementById('drop');
+const tracksEl = document.getElementById('tracks');
+const statsEl = document.getElementById('stats');
+const statusEl = document.getElementById('status');
+const side = document.getElementById('side');
+const toggleSide = document.getElementById('toggleSide');
+const sideHeader = document.getElementById('sideHeader');
+const sortSelect = document.getElementById('sortSelect');
+
+const canvas = document.getElementById('elevationCanvas');
+const ctx = canvas.getContext('2d');
+const canvasWrap = document.getElementById('canvas-wrap');
+
+const trackSlider = document.getElementById('trackSlider');
+const btnPlay = document.getElementById('btnPlay');
+const btnPrev = document.getElementById('btnPrev');
+const btnNext = document.getElementById('btnNext');
+const btnSpeed = document.getElementById('btnSpeed');
+const btn3D = document.getElementById('btn3D');
+const btnExportVideo = document.getElementById('btnExportVideo');
+
+const activeTrackNameEl = document.getElementById('active-track-name');
+const activeTrackStatsEl = document.getElementById('active-track-stats');
+
+const stDist = document.getElementById('stDist');
+const stRest = document.getElementById('stRest');
+const stAlt = document.getElementById('stAlt');
+const stDplus = document.getElementById('stDplus');
+const stProg = document.getElementById('stProg');
+
+document.getElementById('btnFullscreen').addEventListener('click', () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => alert(err.message));
+  else document.exitFullscreen();
+});
+
+function resizeCanvas() {
+  const rect = canvasWrap.getBoundingClientRect();
+  canvas.width = rect.width * window.devicePixelRatio;
+  canvas.height = rect.height * window.devicePixelRatio;
+  drawElevationProfile();
+}
+window.addEventListener('resize', () => { resizeCanvas(); if (map) map.resize(); });
+
+btn3D.addEventListener('click', () => {
+  is3DMode = !is3DMode;
+  btn3D.classList.toggle('active', is3DMode);
+  if (map) map.easeTo({ pitch: is3DMode ? 55 : 0, duration: 600 });
+});
+
+function setSideOpen(open) {
+  if (open) { side.classList.add('open'); toggleSide.textContent = '📋 Masquer'; }
+  else { side.classList.remove('open'); toggleSide.textContent = '📋 Sorties'; }
+  setTimeout(() => { if (map) map.resize(); resizeCanvas(); }, 300);
+}
+toggleSide.addEventListener('click', () => setSideOpen(!side.classList.contains('open')));
+sideHeader.addEventListener('click', () => { if (window.innerWidth <= 700) setSideOpen(!side.classList.contains('open')); });
+
+fileInput.addEventListener('change', e => { loadFiles([...e.target.files]); e.target.value = ''; });
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', e => { loadFiles([...e.dataTransfer.files]); });
+
+function loadFiles(files) {
+  const gpxFiles = files.filter(f => (f.name || '').toLowerCase().endsWith('.gpx') || !(f.name || '').includes('.'));
+  if (!gpxFiles.length) return;
+  gpxFiles.forEach(readFile);
+}
+
+function readFile(file) {
+  setStatus('Lecture de ' + file.name + '…');
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { addGPX(file.name, reader.result); setStatus(file.name + ' chargé.'); }
+    catch (err) { alert('Erreur : ' + err.message); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseGPX(text) {
+  const xml = new DOMParser().parseFromString(text, 'application/xml');
+  if (xml.querySelector('parsererror')) throw new Error('XML corrompu.');
+  const all = [...xml.getElementsByTagName('*')];
+  return all.filter(p => p.localName === 'trkpt' || p.localName === 'rtept').map(p => {
+    const ele = p.querySelector('ele') || all.find(x => x.parentNode === p && x.localName === 'ele');
+    return { lat: parseFloat(p.getAttribute('lat')), lon: parseFloat(p.getAttribute('lon')), ele: ele ? parseFloat(ele.textContent) : null };
+  }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+}
+
+function calculateTrackData(points) {
+  let cumDist = 0, cumDplus = 0, cumDminus = 0;
+  let minEle = Infinity, maxEle = -Infinity, hasElevation = false;
+  const trackPts = [];
+  let lastEle = points[0] ? points[0].ele : null;
+
+  for (let i = 0; i < points.length; i++) {
+    const pt = points[i];
+    if (i > 0) cumDist += haversine(points[i-1].lat, points[i-1].lon, pt.lat, pt.lon);
+    if (pt.ele !== null && !isNaN(pt.ele)) {
+      hasElevation = true;
+      if (pt.ele < minEle) minEle = pt.ele;
+      if (pt.ele > maxEle) maxEle = pt.ele;
+      if (lastEle !== null) {
+        const diff = pt.ele - lastEle;
+        if (diff >= ELE_THRESHOLD) { cumDplus += diff; lastEle = pt.ele; }
+        else if (diff <= -ELE_THRESHOLD) { cumDminus += Math.abs(diff); lastEle = pt.ele; }
+      } else lastEle = pt.ele;
+    }
+    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus });
+  }
+
+  return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, totalDminus: cumDminus, minEle: hasElevation ? minEle : 0, maxEle: hasElevation ? maxEle : 0, hasElevation };
+}
+
+function addGPX(name, text) {
+  const rawPts = parseGPX(text);
+  if (rawPts.length < 2) throw new Error('Tracé vide.');
+
+  const data = calculateTrackData(rawPts);
+  const color = colors[colorIndex++ % colors.length];
+  const trackId = 'track-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+
+  const trackObj = { id: trackId, name, color, visible: true, data };
+  tracks.push(trackObj);
+
+  renderTrackOnMap(trackObj);
+  sortAndRenderTracks();
+  
+  if (!activeTrackId) setActiveTrack(trackId);
+  else drawElevationProfile();
+
+  fitAll();
+}
+
+function renderTrackOnMap(t) {
+  if (!map) return;
+  const coordinates = t.data.points.map(p => [p.lon, p.lat]);
+  if (!map.getSource(t.id)) {
+    map.addSource(t.id, {
+      'type': 'geojson',
+      'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': coordinates } }
+    });
+    map.addLayer({
+      'id': t.id, 'type': 'line', 'source': t.id,
+      'layout': { 'line-join': 'round', 'line-cap': 'round' },
+      'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 }
+    });
+  }
+}
+
+function restoreTracksOnMap() { tracks.forEach(t => renderTrackOnMap(t)); }
+
+function setActiveTrack(id) {
+  activeTrackId = id;
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!tr) return;
+
+  pauseTrack();
+  currentPointIndex = 0;
+  trackSlider.disabled = false;
+  trackSlider.max = tr.data.points.length - 1;
+  trackSlider.value = 0;
+
+  activeTrackNameEl.textContent = tr.name;
+  activeTrackStatsEl.textContent = `${formatDistance(tr.data.totalDist)} km · +${Math.round(tr.data.totalDplus)}m D+`;
+
+  sortAndRenderTracks();
+  drawElevationProfile();
+  setTrackPosition(0);
+}
+
+function drawElevationProfile() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const activeTr = tracks.find(t => t.id === activeTrackId);
+  if (!activeTr || !activeTr.data.hasElevation || !activeTr.data.points.length) return;
+
+  const pts = activeTr.data.points;
+  const totalDist = activeTr.data.totalDist || 1;
+  const minEle = activeTr.data.minEle, maxEle = activeTr.data.maxEle;
+  const eleSpan = (maxEle - minEle) || 50;
+
+  const padding = 15 * window.devicePixelRatio;
+  const plotW = w - padding * 2, plotH = h - padding * 2;
+
+  ctx.beginPath();
+  ctx.moveTo(padding, h - padding);
+
+  for (let i = 0; i < pts.length; i++) {
+    const x = padding + (pts[i].dist / totalDist) * plotW;
+    const eleVal = pts[i].ele !== null ? pts[i].ele : minEle;
+    const y = h - padding - ((eleVal - minEle) / eleSpan) * plotH;
+    ctx.lineTo(x, y);
+  }
+
+  ctx.lineTo(padding + plotW, h - padding);
+  ctx.closePath();
+
+  ctx.fillStyle = activeTr.color + "44";
+  ctx.fill();
+  ctx.strokeStyle = activeTr.color;
+  ctx.lineWidth = 2 * window.devicePixelRatio;
+  ctx.stroke();
+
+  if (currentPointIndex >= 0 && currentPointIndex < pts.length) {
+    const curPt = pts[Math.floor(currentPointIndex)];
+    const cx = padding + (curPt.dist / totalDist) * plotW;
+    const eleVal = curPt.ele !== null ? curPt.ele : minEle;
+    const cy = h - padding - ((eleVal - minEle) / eleSpan) * plotH;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, padding); ctx.lineTo(cx, h - padding);
+    ctx.strokeStyle = "#fff";
+    ctx.setLineDash([3 * window.devicePixelRatio, 3 * window.devicePixelRatio]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5 * window.devicePixelRatio, 0, Math.PI * 2);
+    ctx.fillStyle = "#00aaff";
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2 * window.devicePixelRatio;
+    ctx.stroke();
+  }
+}
+
+function handleCanvasPointer(e) {
+  const activeTr = tracks.find(t => t.id === activeTrackId);
+  if (!activeTr || !activeTr.data.points.length) return;
+
+  const rect = canvasWrap.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const padding = 15;
+  const plotW = rect.width - padding * 2;
+
+  let ratio = Math.max(0, Math.min(1, (clickX - padding) / plotW));
+  const pts = activeTr.data.points;
+  const targetDist = ratio * activeTr.data.totalDist;
+
+  let closestIdx = 0, minDiff = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const diff = Math.abs(pts[i].dist - targetDist);
+    if (diff < minDiff) { minDiff = diff; closestIdx = i; }
+  }
+
+  setTrackPosition(closestIdx);
+}
+
+let isPointerDown = false;
+canvasWrap.addEventListener('pointerdown', e => { isPointerDown = true; handleCanvasPointer(e); });
+canvasWrap.addEventListener('pointermove', e => { if (isPointerDown) handleCanvasPointer(e); });
+window.addEventListener('pointerup', () => isPointerDown = false);
+
+function setTrackPosition(index) {
+  const activeTr = tracks.find(t => t.id === activeTrackId);
+  if (!activeTr || !activeTr.data.points.length) return;
+
+  const pts = activeTr.data.points;
+  currentPointIndex = Math.max(0, Math.min(pts.length - 1, index));
+  
+  const baseIdx = Math.floor(currentPointIndex);
+  const frac = currentPointIndex - baseIdx;
+  const p1 = pts[baseIdx];
+  const p2 = pts[Math.min(pts.length - 1, baseIdx + 1)];
+
+  const currentLon = p1.lon + (p2.lon - p1.lon) * frac;
+  const currentLat = p1.lat + (p2.lat - p1.lat) * frac;
+  const currentEle = p1.ele !== null && p2.ele !== null ? p1.ele + (p2.ele - p1.ele) * frac : p1.ele;
+  const currentDist = p1.dist + (p2.dist - p1.dist) * frac;
+
+  if (map) {
+    if (!trackerMarker) {
+      trackerMarker = new maplibregl.Marker({ element: trackerMarkerElement })
+        .setLngLat([currentLon, currentLat])
+        .addTo(map);
+    } else {
+      trackerMarker.setLngLat([currentLon, currentLat]);
+    }
+
+    const camMode = document.getElementById('camModeSelect').value;
+
+    if (camMode !== 'off') {
+      let targetBearing = map.getBearing();
+
+      if (camMode === 'fixed') {
+        targetBearing = 0;
+      } else {
+        let rawBearing = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+
+        if (camMode === 'threshold') {
+          let diff = Math.abs(rawBearing - currentCamBearing);
+          if (diff > 180) diff = 360 - diff;
+
+          if (diff > CAM_THRESHOLD_ANGLE) {
+            currentCamBearing = lerpAngle(currentCamBearing, rawBearing, 0.08);
+          }
+          targetBearing = currentCamBearing;
+        } else if (camMode === 'smooth') {
+          currentCamBearing = lerpAngle(currentCamBearing, rawBearing, 0.05);
+          targetBearing = currentCamBearing;
+        }
+      }
+
+      map.jumpTo({
+        center: [currentLon, currentLat],
+        zoom: is3DMode ? 15.5 : 14.5,
+        pitch: is3DMode ? 55 : 0,
+        bearing: targetBearing
+      });
+    }
+  }
+
+  trackSlider.value = currentPointIndex;
+  stDist.textContent = formatDistance(currentDist) + ' km';
+  stRest.textContent = formatDistance(activeTr.data.totalDist - currentDist) + ' km';
+  stAlt.textContent = currentEle !== null ? Math.round(currentEle) + ' m' : '-- m';
+  stDplus.textContent = Math.round(p1.cumDplus) + ' m';
+  stProg.textContent = Math.round((currentDist / (activeTr.data.totalDist || 1)) * 100) + '%';
+
+  drawElevationProfile();
+}
+
+trackSlider.addEventListener('input', e => setTrackPosition(parseFloat(e.target.value)));
+
+function playStep() {
+  if (!isPlaying) return;
+  const activeTr = tracks.find(t => t.id === activeTrackId);
+  if (!activeTr) return;
+
+  currentPointIndex += (0.15 * playSpeed);
+  if (currentPointIndex >= activeTr.data.points.length - 1) {
+    setTrackPosition(activeTr.data.points.length - 1);
+    pauseTrack();
+    return;
+  }
+
+  setTrackPosition(currentPointIndex);
+  playAnimationId = requestAnimationFrame(playStep);
+}
+
+function playTrack() {
+  const activeTr = tracks.find(t => t.id === activeTrackId);
+  if (!activeTr) return;
+  if (currentPointIndex >= activeTr.data.points.length - 1) currentPointIndex = 0;
+  isPlaying = true;
+  btnPlay.textContent = '⏸';
+  btnPlay.classList.add('active');
+  playStep();
+}
+
+function pauseTrack() {
+  isPlaying = false;
+  btnPlay.textContent = '▶';
+  btnPlay.classList.remove('active');
+  if (playAnimationId) cancelAnimationFrame(playAnimationId);
+}
+
+btnPlay.addEventListener('click', () => { if (isPlaying) pauseTrack(); else playTrack(); });
+btnPrev.addEventListener('click', () => { pauseTrack(); setTrackPosition(currentPointIndex - 15); });
+btnNext.addEventListener('click', () => { pauseTrack(); setTrackPosition(currentPointIndex + 15); });
+
+btnSpeed.addEventListener('click', () => {
+  const nextIdx = (speeds.indexOf(playSpeed) + 1) % speeds.length;
+  playSpeed = speeds[nextIdx];
+  btnSpeed.textContent = 'x' + playSpeed;
+});
+
+/* Export Vidéo Image par Image */
+btnExportVideo.addEventListener('click', async () => {
+  const activeTr = tracks.find(t => t.id === activeTrackId);
+  if (!activeTr) {
+    alert('Veuillez sélectionner un parcours.');
+    return;
+  }
+
+  pauseTrack();
+  btnExportVideo.disabled = true;
+
+  const mapCanvas = map.getCanvas();
+  const stream = mapCanvas.captureStream(0); // Capture manuelle frame par frame
+  const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+  const chunks = [];
+
+  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('Export vidéo terminé !');
+    btnExportVideo.disabled = false;
+    btnExportVideo.textContent = '🎬 Export Vidéo';
+  };
+
+  mediaRecorder.start();
+  
+  const totalFrames = 150; // Nombre total d'images dans la vidéo générée
+  const step = (activeTr.data.points.length - 1) / totalFrames;
+
+  for (let i = 0; i <= totalFrames; i++) {
+    const targetIdx = i * step;
+    setTrackPosition(targetIdx);
+
+    // Attente du rendu complet de MapLibre
+    await new Promise(resolve => map.once('render', resolve));
+
+    // Déclenchement de la capture de la frame
+    if (stream.getVideoTracks()[0].requestFrame) {
+      stream.getVideoTracks()[0].requestFrame();
+    }
+    
+    btnExportVideo.textContent = `⏳ ${Math.round((i / totalFrames) * 100)}%`;
+    setStatus(`Génération de la vidéo : ${Math.round((i / totalFrames) * 100)}%`);
+  }
+
+  mediaRecorder.stop();
+});
+
+sortSelect.addEventListener('change', () => sortAndRenderTracks());
+
+function sortAndRenderTracks() {
+  const mode = sortSelect.value;
+  if (mode === 'name') tracks.sort((a, b) => a.name.localeCompare(b.name));
+  else if (mode === 'dist') tracks.sort((a, b) => b.data.totalDist - a.data.totalDist);
+  else if (mode === 'dplus') tracks.sort((a, b) => b.data.totalDplus - a.data.totalDplus);
+
+  renderList();
+}
+
+function renderList() {
+  tracksEl.innerHTML = '';
+  if (!tracks.length) {
+    tracksEl.innerHTML = '<div class="empty">Aucun GPX chargé.</div>';
+    statsEl.textContent = '';
+    activeTrackNameEl.textContent = 'Aucune sortie active';
+    activeTrackStatsEl.textContent = '';
+    return;
+  }
+  let totalKm = 0, totalEle = 0;
+
+  tracks.forEach((t, index) => {
+    totalKm += t.data.totalDist;
+    totalEle += t.data.totalDplus;
+
+    const div = document.createElement('div');
+    div.className = 'track' + (t.visible ? '' : ' hidden') + (t.id === activeTrackId ? ' active-track' : '');
+    div.draggable = true;
+    div.dataset.index = index;
+
+    div.innerHTML = `
+      <span class="swatch" style="background:${t.color}"></span>
+      <div class="track-main">
+        <div class="track-name" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</div>
+        <div class="track-info">${formatDistance(t.data.totalDist)} km · +${Math.round(t.data.totalDplus)} m</div>
+      </div>
+      <div class="track-actions">
+        <button class="toggle-btn">${t.visible ? 'Masquer' : 'Afficher'}</button>
+        <button class="del-btn">✕</button>
+      </div>
+    `;
+
+    div.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', index);
+      div.classList.add('dragging');
+      sortSelect.value = 'manual';
+    });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
+
+    div.addEventListener('dragover', (e) => e.preventDefault());
+    div.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const dragIdx = parseInt(e.dataTransfer.getData('text/plain'));
+      const dropIdx = index;
+      if (dragIdx !== dropIdx) {
+        const movedTrack = tracks.splice(dragIdx, 1)[0];
+        tracks.splice(dropIdx, 0, movedTrack);
+        sortAndRenderTracks();
+      }
+    });
+
+    div.addEventListener('click', e => { if (e.target.tagName !== 'BUTTON') setActiveTrack(t.id); });
+
+    div.querySelector('.toggle-btn').onclick = (e) => {
+      e.stopPropagation();
+      t.visible = !t.visible;
+      if (map) map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
+      renderList();
+    };
+
+    div.querySelector('.del-btn').onclick = (e) => {
+      e.stopPropagation();
+      if (map) {
+        if (map.getLayer(t.id)) map.removeLayer(t.id);
+        if (map.getSource(t.id)) map.removeSource(t.id);
+      }
+      tracks = tracks.filter(x => x.id !== t.id);
+      if (activeTrackId === t.id) {
+        activeTrackId = tracks.length ? tracks[0].id : null;
+        if (activeTrackId) setActiveTrack(activeTrackId);
+        else if (trackerMarker) { trackerMarker.remove(); trackerMarker = null; }
+      }
+      renderList(); drawElevationProfile(); fitAll();
+    };
+
+    tracksEl.appendChild(div);
+  });
+
+  statsEl.textContent = `${tracks.length} sortie(s) · ${formatDistance(totalKm)} km · +${Math.round(totalEle)} m D+`;
+}
+
+function fitAll() {
+  if (!map) return;
+  const visible = tracks.filter(t => t.visible);
+  if (!visible.length) return;
+  const bounds = new maplibregl.LngLatBounds();
+  visible.forEach(t => t.data.points.forEach(p => bounds.extend([p.lon, p.lat])));
+  map.fitBounds(bounds, { padding: 40, pitch: is3DMode ? 40 : 0 });
+}
+
+document.getElementById('fitBtn').onclick = fitAll;
+document.getElementById('clearBtn').onclick = () => {
+  tracks.forEach(t => {
+    if (map) {
+      if (map.getLayer(t.id)) map.removeLayer(t.id);
+      if (map.getSource(t.id)) map.removeSource(t.id);
+    }
+  });
+  tracks = []; activeTrackId = null; colorIndex = 0;
+  if (trackerMarker) { trackerMarker.remove(); trackerMarker = null; }
+  renderList(); drawElevationProfile(); setStatus('');
+};
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000, a1 = lat1 * Math.PI / 180, a2 = lat2 * Math.PI / 180;
+  const dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+  return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat / 2) ** 2 + Math.cos(a1) * Math.cos(a2) * Math.sin(dLon / 2) ** 2));
+}
+
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function formatDistance(km) { return km < 10 ? km.toFixed(2) : km.toFixed(1); }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c])); }
+function setStatus(s) { statusEl.textContent = s; }
+
+function lerpAngle(start, end, amount) {
+  let da = (end - start) % 360;
+  let distance = (2 * da) % 360 - da;
+  return start + distance * amount;
+}
+
+applyTheme('system');
+resizeCanvas();
+initMap();
+</script>
+</body>
+</html>
