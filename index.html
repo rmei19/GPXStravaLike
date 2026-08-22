@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v2.8</title>
+<title>GPX Compare v3.0</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -133,7 +133,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </div>
 
 <div id="topbar">
-  <h1>🚴 GPX Compare v2.9</h1>
+  <h1>🚴 GPX Compare v3.0</h1>
   <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
   <select id="mapStyleSelect">
     <option value="outdoor-v2">🌲 Rando / Outdoor</option>
@@ -255,6 +255,10 @@ const ELE_THRESHOLD = 1.5;
 let is3DMode = false;
 let map = null;
 
+function getStyleUrl(styleName) {
+  return `https://api.maptiler.com/maps/${styleName}/style.json?key=${MAPTILER_KEY}`;
+}
+
 function initMap() {
   if (!MAPTILER_KEY) {
     openKeyModal();
@@ -265,9 +269,11 @@ function initMap() {
     map.remove();
   }
 
+  const selectedStyle = document.getElementById('mapStyleSelect').value;
+
   map = new maplibregl.Map({
     container: 'map',
-    style: `https://api.maptiler.com/maps/${document.getElementById('mapStyleSelect').value}/style.json?key=${MAPTILER_KEY}`,
+    style: getStyleUrl(selectedStyle),
     center: [2.5, 46.6],
     zoom: 5.5,
     pitch: 0,
@@ -276,10 +282,14 @@ function initMap() {
     preserveDrawingBuffer: true
   });
 
+  // Gère l'initialisation et la reconstruction des couches à chaque chargement de style (y compris setStyle)
   map.on('style.load', () => {
     apply3DTerrain();
     restoreTracksOnMap();
     initTrackerLayer();
+    if (activeTrackId) {
+      setTrackPosition(currentPointIndex);
+    }
   });
 
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
@@ -326,7 +336,7 @@ function initTrackerLayer() {
 
 document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
   if (!map || !MAPTILER_KEY) return;
-  map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${MAPTILER_KEY}`);
+  map.setStyle(getStyleUrl(e.target.value));
 });
 
 const themeSelect = document.getElementById('themeSelect');
@@ -506,10 +516,14 @@ function renderTrackOnMap(t) {
       'layout': { 'line-join': 'round', 'line-cap': 'round' },
       'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 }
     });
+    // Applique l'état de visibilité mémorisé
+    map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
   }
 }
 
-function restoreTracksOnMap() { tracks.forEach(t => renderTrackOnMap(t)); }
+function restoreTracksOnMap() { 
+  tracks.forEach(t => renderTrackOnMap(t)); 
+}
 
 function setActiveTrack(id) {
   activeTrackId = id;
