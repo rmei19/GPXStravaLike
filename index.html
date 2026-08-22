@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.1</title>
+<title>GPX Compare v3.2</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -133,7 +133,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </div>
 
 <div id="topbar">
-  <h1>🚴 GPX Compare v3.1</h1>
+  <h1>🚴 GPX Compare v3.2</h1>
   <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
   <select id="mapStyleSelect">
     <option value="outdoor-v2">🌲 Rando / Outdoor</option>
@@ -177,14 +177,17 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
       <div id="tracker-controls">
         <div class="control-group">
           <button id="btnPlay">▶</button>
-          <button id="btnPrev">⏮</button>
-          <button id="btnNext">⏭</button>
         </div>
         
-        <input type="range" id="trackSlider" min="0" max="100" value="0" step="0.01" disabled>
+        <input type="range" id="trackSlider" min="0" max="1" value="0" step="0.001" disabled>
         
         <div class="control-group">
-          <button id="btnSpeed">x1</button>
+          <select id="animDurationSelect">
+            <option value="15">⏱️ 15 sec</option>
+            <option value="30" selected>⏱️ 30 sec</option>
+            <option value="60">⏱️ 1 min</option>
+            <option value="120">⏱️ 2 min</option>
+          </select>
           <select id="camModeSelect">
             <option value="threshold" selected>🎯 Caméra : Seuil (25°)</option>
             <option value="smooth">🌀 Caméra : Fluide</option>
@@ -195,7 +198,6 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 
         <div id="tracker-stats-bar">
           <span>Distance: <b id="stDist">0.0 km</b></span>
-          <span>Reste: <b id="stRest">0.0 km</b></span>
           <span>Alt: <b id="stAlt">-- m</b></span>
           <span>D+: <b id="stDplus">0 m</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
@@ -260,14 +262,8 @@ function getStyleUrl(styleName) {
 }
 
 function initMap() {
-  if (!MAPTILER_KEY) {
-    openKeyModal();
-    return;
-  }
-
-  if (map) {
-    map.remove();
-  }
+  if (!MAPTILER_KEY) { openKeyModal(); return; }
+  if (map) map.remove();
 
   const selectedStyle = document.getElementById('mapStyleSelect').value;
 
@@ -280,7 +276,6 @@ function initMap() {
     bearing: 0,
     maxPitch: 85,
     preserveDrawingBuffer: true,
-    // FIX v3.1 : Injecte la clé API dans toutes les sous-requêtes MapTiler (corrige le bug satellite)
     transformRequest: (url, resourceType) => {
       if (url.indexOf('maptiler.com') !== -1 && url.indexOf('key=') === -1) {
         return { url: url + (url.indexOf('?') === -1 ? '?' : '&') + 'key=' + MAPTILER_KEY };
@@ -289,16 +284,12 @@ function initMap() {
     }
   });
 
-  // FIX v3.1 : S'assure que les couches sont reconstruites à chaque changement de style
   map.on('style.load', () => {
     apply3DTerrain();
     restoreTracksOnMap();
     initTrackerLayer();
-    if (activeTrackId) {
-      setTrackPosition(currentPointIndex);
-    }
+    if (activeTrackId) setTrackPositionByRatio(currentRatio);
   });
-
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
 }
 
@@ -361,9 +352,8 @@ let activeTrackId = null;
 
 let isPlaying = false;
 let playAnimationId = null;
-let currentPointIndex = 0;
-let playSpeed = 1;
-const speeds = [1, 2, 5, 10];
+let currentRatio = 0; // Entre 0 et 1
+let lastFrameTime = 0;
 
 let currentCamBearing = 0;
 const CAM_THRESHOLD_ANGLE = 25;
@@ -377,6 +367,7 @@ const side = document.getElementById('side');
 const toggleSide = document.getElementById('toggleSide');
 const sideHeader = document.getElementById('sideHeader');
 const sortSelect = document.getElementById('sortSelect');
+const animDurationSelect = document.getElementById('animDurationSelect');
 
 const canvas = document.getElementById('elevationCanvas');
 const ctx = canvas.getContext('2d');
@@ -384,9 +375,6 @@ const canvasWrap = document.getElementById('canvas-wrap');
 
 const trackSlider = document.getElementById('trackSlider');
 const btnPlay = document.getElementById('btnPlay');
-const btnPrev = document.getElementById('btnPrev');
-const btnNext = document.getElementById('btnNext');
-const btnSpeed = document.getElementById('btnSpeed');
 const btn3D = document.getElementById('btn3D');
 const btnExportVideo = document.getElementById('btnExportVideo');
 
@@ -394,7 +382,6 @@ const activeTrackNameEl = document.getElementById('active-track-name');
 const activeTrackStatsEl = document.getElementById('active-track-stats');
 
 const stDist = document.getElementById('stDist');
-const stRest = document.getElementById('stRest');
 const stAlt = document.getElementById('stAlt');
 const stDplus = document.getElementById('stDplus');
 const stProg = document.getElementById('stProg');
@@ -450,21 +437,33 @@ function readFile(file) {
   reader.readAsText(file, 'UTF-8');
 }
 
+// FIX v3.2 : Lecture du temps (balise <time>)
 function parseGPX(text) {
   const xml = new DOMParser().parseFromString(text, 'application/xml');
   if (xml.querySelector('parsererror')) throw new Error('XML corrompu.');
   const all = [...xml.getElementsByTagName('*')];
   return all.filter(p => p.localName === 'trkpt' || p.localName === 'rtept').map(p => {
-    const ele = p.querySelector('ele') || all.find(x => x.parentNode === p && x.localName === 'ele');
-    return { lat: parseFloat(p.getAttribute('lat')), lon: parseFloat(p.getAttribute('lon')), ele: ele ? parseFloat(ele.textContent) : null };
+    const eleNode = p.querySelector('ele') || all.find(x => x.parentNode === p && x.localName === 'ele');
+    const timeNode = p.querySelector('time') || all.find(x => x.parentNode === p && x.localName === 'time');
+    return { 
+      lat: parseFloat(p.getAttribute('lat')), 
+      lon: parseFloat(p.getAttribute('lon')), 
+      ele: eleNode ? parseFloat(eleNode.textContent) : null,
+      time: timeNode ? new Date(timeNode.textContent).getTime() : null
+    };
   }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
 }
 
 function calculateTrackData(points) {
-  let cumDist = 0, cumDplus = 0, cumDminus = 0;
+  let cumDist = 0, cumDplus = 0;
   let minEle = Infinity, maxEle = -Infinity, hasElevation = false;
   const trackPts = [];
   let lastEle = points[0] ? points[0].ele : null;
+  
+  // Analyse du temps
+  const hasTime = points.length > 0 && points[0].time !== null && points[points.length-1].time !== null;
+  const startTime = hasTime ? points[0].time : 0;
+  const totalTime = hasTime ? points[points.length-1].time - startTime : 0;
 
   for (let i = 0; i < points.length; i++) {
     const pt = points[i];
@@ -475,14 +474,25 @@ function calculateTrackData(points) {
       if (pt.ele > maxEle) maxEle = pt.ele;
       if (lastEle !== null) {
         const diff = pt.ele - lastEle;
-        if (diff >= ELE_THRESHOLD) { cumDplus += diff; lastEle = pt.ele; }
-        else if (diff <= -ELE_THRESHOLD) { cumDminus += Math.abs(diff); lastEle = pt.ele; }
-      } else lastEle = pt.ele;
+        if (diff >= ELE_THRESHOLD) cumDplus += diff;
+      }
+      lastEle = pt.ele;
     }
-    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus });
+    
+    // Détermination de la fraction d'avancement pour l'animation (basé sur le temps si dispo, sinon distance)
+    let fraction = 0;
+    if (hasTime && totalTime > 0) fraction = (pt.time - startTime) / totalTime;
+    else fraction = cumDist; // Sera normalisé plus bas si on utilise la distance
+
+    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, fraction });
   }
 
-  return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, totalDminus: cumDminus, minEle: hasElevation ? minEle : 0, maxEle: hasElevation ? maxEle : 0, hasElevation };
+  // Normalisation de la fraction si on n'a pas de temps GPS
+  if (!hasTime && cumDist > 0) {
+    trackPts.forEach(p => p.fraction = p.fraction / cumDist);
+  }
+
+  return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, minEle: hasElevation ? minEle : 0, maxEle: hasElevation ? maxEle : 0, hasElevation };
 }
 
 function addGPX(name, text) {
@@ -522,9 +532,7 @@ function renderTrackOnMap(t) {
   }
 }
 
-function restoreTracksOnMap() { 
-  tracks.forEach(t => renderTrackOnMap(t)); 
-}
+function restoreTracksOnMap() { tracks.forEach(t => renderTrackOnMap(t)); }
 
 function setActiveTrack(id) {
   activeTrackId = id;
@@ -532,12 +540,10 @@ function setActiveTrack(id) {
   if (!tr) return;
 
   pauseTrack();
-  currentPointIndex = 0;
+  currentRatio = 0;
   trackSlider.disabled = false;
-  trackSlider.max = tr.data.points.length - 1;
   trackSlider.value = 0;
 
-  // FIX v3.1 : Réinitialisation propre de la caméra
   currentCamBearing = map ? map.getBearing() : 0; 
 
   activeTrackNameEl.textContent = tr.name;
@@ -545,7 +551,7 @@ function setActiveTrack(id) {
 
   sortAndRenderTracks();
   drawElevationProfile();
-  setTrackPosition(0);
+  setTrackPositionByRatio(0);
 }
 
 function drawElevationProfile() {
@@ -556,7 +562,6 @@ function drawElevationProfile() {
   if (!activeTr || !activeTr.data.hasElevation || !activeTr.data.points.length) return;
 
   const pts = activeTr.data.points;
-  const totalDist = activeTr.data.totalDist || 1;
   const minEle = activeTr.data.minEle, maxEle = activeTr.data.maxEle;
   const eleSpan = (maxEle - minEle) || 50;
 
@@ -567,7 +572,7 @@ function drawElevationProfile() {
   ctx.moveTo(padding, h - padding);
 
   for (let i = 0; i < pts.length; i++) {
-    const x = padding + (pts[i].dist / totalDist) * plotW;
+    const x = padding + (pts[i].fraction) * plotW;
     const eleVal = pts[i].ele !== null ? pts[i].ele : minEle;
     const y = h - padding - ((eleVal - minEle) / eleSpan) * plotH;
     ctx.lineTo(x, y);
@@ -582,27 +587,35 @@ function drawElevationProfile() {
   ctx.lineWidth = 2 * window.devicePixelRatio;
   ctx.stroke();
 
-  if (currentPointIndex >= 0 && currentPointIndex < pts.length) {
-    const curPt = pts[Math.floor(currentPointIndex)];
-    const cx = padding + (curPt.dist / totalDist) * plotW;
-    const eleVal = curPt.ele !== null ? curPt.ele : minEle;
-    const cy = h - padding - ((eleVal - minEle) / eleSpan) * plotH;
-
-    ctx.beginPath();
-    ctx.moveTo(cx, padding); ctx.lineTo(cx, h - padding);
-    ctx.strokeStyle = "#fff";
-    ctx.setLineDash([3 * window.devicePixelRatio, 3 * window.devicePixelRatio]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, 5 * window.devicePixelRatio, 0, Math.PI * 2);
-    ctx.fillStyle = "#00aaff";
-    ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2 * window.devicePixelRatio;
-    ctx.stroke();
+  // Dessin du curseur avec ratio
+  const cx = padding + currentRatio * plotW;
+  
+  // Trouver l'élévation courante estimée
+  let curEle = minEle;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) {
+      const segRatio = (currentRatio - pts[i].fraction) / (pts[i+1].fraction - pts[i].fraction || 1);
+      curEle = pts[i].ele + (pts[i+1].ele - pts[i].ele) * segRatio;
+      break;
+    }
   }
+
+  const cy = h - padding - ((curEle - minEle) / eleSpan) * plotH;
+
+  ctx.beginPath();
+  ctx.moveTo(cx, padding); ctx.lineTo(cx, h - padding);
+  ctx.strokeStyle = "#fff";
+  ctx.setLineDash([3 * window.devicePixelRatio, 3 * window.devicePixelRatio]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5 * window.devicePixelRatio, 0, Math.PI * 2);
+  ctx.fillStyle = "#00aaff";
+  ctx.fill();
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2 * window.devicePixelRatio;
+  ctx.stroke();
 }
 
 function handleCanvasPointer(e) {
@@ -615,16 +628,7 @@ function handleCanvasPointer(e) {
   const plotW = rect.width - padding * 2;
 
   let ratio = Math.max(0, Math.min(1, (clickX - padding) / plotW));
-  const pts = activeTr.data.points;
-  const targetDist = ratio * activeTr.data.totalDist;
-
-  let closestIdx = 0, minDiff = Infinity;
-  for (let i = 0; i < pts.length; i++) {
-    const diff = Math.abs(pts[i].dist - targetDist);
-    if (diff < minDiff) { minDiff = diff; closestIdx = i; }
-  }
-
-  setTrackPosition(closestIdx);
+  setTrackPositionByRatio(ratio);
 }
 
 let isPointerDown = false;
@@ -632,22 +636,31 @@ canvasWrap.addEventListener('pointerdown', e => { isPointerDown = true; handleCa
 canvasWrap.addEventListener('pointermove', e => { if (isPointerDown) handleCanvasPointer(e); });
 window.addEventListener('pointerup', () => isPointerDown = false);
 
-function setTrackPosition(index) {
+// FIX v3.2 : Position basée sur un ratio de temps (0 à 1)
+function setTrackPositionByRatio(ratio) {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr || !activeTr.data.points.length) return;
 
+  currentRatio = Math.max(0, Math.min(1, ratio));
   const pts = activeTr.data.points;
-  currentPointIndex = Math.max(0, Math.min(pts.length - 1, index));
   
-  const baseIdx = Math.floor(currentPointIndex);
-  const frac = currentPointIndex - baseIdx;
-  const p1 = pts[baseIdx];
-  const p2 = pts[Math.min(pts.length - 1, baseIdx + 1)];
+  let p1, p2, frac = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) {
+      p1 = pts[i];
+      p2 = pts[i+1];
+      frac = (currentRatio - p1.fraction) / (p2.fraction - p1.fraction || 1);
+      break;
+    }
+  }
+  
+  if (!p1) { p1 = pts[pts.length-1]; p2 = p1; frac = 0; }
 
   const currentLon = p1.lon + (p2.lon - p1.lon) * frac;
   const currentLat = p1.lat + (p2.lat - p1.lat) * frac;
   const currentEle = p1.ele !== null && p2.ele !== null ? p1.ele + (p2.ele - p1.ele) * frac : p1.ele;
   const currentDist = p1.dist + (p2.dist - p1.dist) * frac;
+  const currentDplus = p1.cumDplus + (p2.cumDplus - p1.cumDplus) * frac;
 
   if (map) {
     const trackerSource = map.getSource('tracker-source');
@@ -666,17 +679,17 @@ function setTrackPosition(index) {
         targetBearing = 0;
       } else {
         let rawBearing = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
-        
-        // FIX v3.1 : Protection contre les NaN si les points sont identiques
         if (isNaN(rawBearing)) rawBearing = targetBearing;
         if (isNaN(currentCamBearing)) currentCamBearing = targetBearing;
 
         if (camMode === 'threshold') {
-          let diff = Math.abs(rawBearing - currentCamBearing);
-          if (diff > 180) diff = 360 - diff;
-
-          if (diff > CAM_THRESHOLD_ANGLE) {
-            currentCamBearing = lerpAngle(currentCamBearing, rawBearing, 0.08);
+          // FIX v3.2 : Véritable logique de Deadzone (Seuil)
+          let da = (rawBearing - currentCamBearing) % 360;
+          let diff = (2 * da) % 360 - da; // -180 à 180
+          
+          if (Math.abs(diff) > CAM_THRESHOLD_ANGLE) {
+            let correction = diff > 0 ? diff - CAM_THRESHOLD_ANGLE : diff + CAM_THRESHOLD_ANGLE;
+            currentCamBearing = (currentCamBearing + correction) % 360;
           }
           targetBearing = currentCamBearing;
         } else if (camMode === 'smooth') {
@@ -694,42 +707,52 @@ function setTrackPosition(index) {
     }
   }
 
-  trackSlider.value = currentPointIndex;
+  trackSlider.value = currentRatio;
   stDist.textContent = formatDistance(currentDist) + ' km';
-  stRest.textContent = formatDistance(activeTr.data.totalDist - currentDist) + ' km';
   stAlt.textContent = currentEle !== null ? Math.round(currentEle) + ' m' : '-- m';
-  stDplus.textContent = Math.round(p1.cumDplus) + ' m';
-  stProg.textContent = Math.round((currentDist / (activeTr.data.totalDist || 1)) * 100) + '%';
+  stDplus.textContent = Math.round(currentDplus) + ' m';
+  stProg.textContent = Math.round(currentRatio * 100) + '%';
 
   drawElevationProfile();
 }
 
-trackSlider.addEventListener('input', e => setTrackPosition(parseFloat(e.target.value)));
+trackSlider.addEventListener('input', e => setTrackPositionByRatio(parseFloat(e.target.value)));
 
-function playStep() {
+function playStep(timestamp) {
   if (!isPlaying) return;
+  if (!lastFrameTime) lastFrameTime = timestamp;
+  
+  const deltaTime = timestamp - lastFrameTime;
+  lastFrameTime = timestamp;
+
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr) return;
 
-  currentPointIndex += (0.15 * playSpeed);
-  if (currentPointIndex >= activeTr.data.points.length - 1) {
-    setTrackPosition(activeTr.data.points.length - 1);
+  // Calcul du pas en fonction de la durée choisie
+  const durationSec = parseFloat(animDurationSelect.value);
+  const ratioDelta = (deltaTime / 1000) / durationSec;
+  
+  currentRatio += ratioDelta;
+
+  if (currentRatio >= 1) {
+    setTrackPositionByRatio(1);
     pauseTrack();
     return;
   }
 
-  setTrackPosition(currentPointIndex);
+  setTrackPositionByRatio(currentRatio);
   playAnimationId = requestAnimationFrame(playStep);
 }
 
 function playTrack() {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr) return;
-  if (currentPointIndex >= activeTr.data.points.length - 1) currentPointIndex = 0;
+  if (currentRatio >= 1) currentRatio = 0;
   isPlaying = true;
+  lastFrameTime = 0;
   btnPlay.textContent = '⏸';
   btnPlay.classList.add('active');
-  playStep();
+  playAnimationId = requestAnimationFrame(playStep);
 }
 
 function pauseTrack() {
@@ -740,14 +763,6 @@ function pauseTrack() {
 }
 
 btnPlay.addEventListener('click', () => { if (isPlaying) pauseTrack(); else playTrack(); });
-btnPrev.addEventListener('click', () => { pauseTrack(); setTrackPosition(currentPointIndex - 15); });
-btnNext.addEventListener('click', () => { pauseTrack(); setTrackPosition(currentPointIndex + 15); });
-
-btnSpeed.addEventListener('click', () => {
-  const nextIdx = (speeds.indexOf(playSpeed) + 1) % speeds.length;
-  playSpeed = speeds[nextIdx];
-  btnSpeed.textContent = 'x' + playSpeed;
-});
 
 let isRecording = false;
 let mediaRecorder = null;
@@ -790,16 +805,16 @@ btnExportVideo.addEventListener('click', async () => {
   mediaRecorder.start();
   isRecording = true;
   
-  btnExportVideo.textContent = '⏹ Arrêter l\'enregistrement';
+  btnExportVideo.textContent = '⏹ Arrêter';
   btnExportVideo.style.backgroundColor = '#e53935';
   btnExportVideo.style.color = '#fff';
-  setStatus('🔴 Enregistrement en direct en cours...');
+  setStatus('🔴 Enregistrement en cours...');
 
-  setTrackPosition(0);
+  setTrackPositionByRatio(0);
   playTrack();
 
   recordInterval = setInterval(() => {
-    if (currentPointIndex >= activeTr.data.points.length - 1) {
+    if (currentRatio >= 1) {
       if (mediaRecorder.state === 'recording') mediaRecorder.stop();
     }
   }, 500);
@@ -924,7 +939,7 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 function calculateBearing(lat1, lon1, lat2, lon2) {
-  if (lat1 === lat2 && lon1 === lon2) return NaN; // FIX v3.1 : Évite les NaN si les points se superposent
+  if (lat1 === lat2 && lon1 === lon2) return NaN;
   const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
   const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
             Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
