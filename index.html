@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.2</title>
+<title>GPX Compare v3.3</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -124,22 +124,23 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 <div id="keyModal" class="modal-overlay hidden">
   <div class="modal-box">
     <h3>🔑 Configuration MapTiler</h3>
-    <p>Saisis ta clé API MapTiler pour charger les fonds de carte et le relief 3D. Elle sera conservée uniquement dans ton navigateur.</p>
+    <p>Pour utiliser la 3D et les fonds de cartes détaillés, saisis ta clé API MapTiler. Elle sera conservée uniquement dans ton navigateur.</p>
     <input type="text" id="apiKeyInput" placeholder="Ex: eXamPleKeY123456">
     <div class="modal-actions">
+      <button id="closeKeyBtn">Annuler</button>
       <button id="saveKeyBtn" class="active">Enregistrer</button>
     </div>
   </div>
 </div>
 
 <div id="topbar">
-  <h1>🚴 GPX Compare v3.2</h1>
+  <h1>🚴 GPX Compare v3.3</h1>
   <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
   <select id="mapStyleSelect">
-    <option value="outdoor-v2">🌲 Rando / Outdoor</option>
-    <option value="satellite">🛰️ Satellite</option>
-    <option value="topo-v2">⛰️ Topographique</option>
-    <option value="streets-v2">🗺️ Route / Ville</option>
+    <option value="osm" selected>🗺️ OpenStreetMap (Gratuit)</option>
+    <option value="outdoor-v2">🌲 MapTiler Rando (Requis Clé)</option>
+    <option value="satellite">🛰️ MapTiler Satellite (Requis Clé)</option>
+    <option value="topo-v2">⛰️ MapTiler Topo (Requis Clé)</option>
   </select>
   <select id="themeSelect">
     <option value="system" selected>💻 Système</option>
@@ -232,14 +233,44 @@ let MAPTILER_KEY = localStorage.getItem('maptiler_api_key') || '';
 const keyModal = document.getElementById('keyModal');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const saveKeyBtn = document.getElementById('saveKeyBtn');
+const closeKeyBtn = document.getElementById('closeKeyBtn');
 const btnKey = document.getElementById('btnKey');
+const mapStyleSelect = document.getElementById('mapStyleSelect');
 
-function openKeyModal() {
+let pendingAction = null; // Stocke l'action en attente de la clé
+
+const osmStyle = {
+  "version": 8,
+  "sources": {
+    "osm": {
+      "type": "raster",
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "attribution": "&copy; OpenStreetMap Contributors"
+    }
+  },
+  "layers": [{
+    "id": "osm-layer",
+    "type": "raster",
+    "source": "osm",
+    "minzoom": 0,
+    "maxzoom": 19
+  }]
+};
+
+function openKeyModal(action = null) {
+  pendingAction = action;
   apiKeyInput.value = MAPTILER_KEY;
   keyModal.classList.remove('hidden');
 }
 
-btnKey.addEventListener('click', openKeyModal);
+closeKeyBtn.addEventListener('click', () => {
+  keyModal.classList.add('hidden');
+  if (pendingAction === 'style') mapStyleSelect.value = 'osm'; // Revenir à OSM si annulation
+  pendingAction = null;
+});
+
+btnKey.addEventListener('click', () => openKeyModal());
 
 saveKeyBtn.addEventListener('click', () => {
   const val = apiKeyInput.value.trim();
@@ -247,7 +278,15 @@ saveKeyBtn.addEventListener('click', () => {
     MAPTILER_KEY = val;
     localStorage.setItem('maptiler_api_key', val);
     keyModal.classList.add('hidden');
-    initMap();
+    
+    // Reprendre l'action interrompue
+    if (pendingAction === '3d') {
+      btn3D.click();
+    } else if (pendingAction === 'style' || pendingAction === 'init') {
+      map.setStyle(getStyleUrl(mapStyleSelect.value));
+      if (is3DMode) setTimeout(apply3DTerrain, 500);
+    }
+    pendingAction = null;
   } else {
     alert('Veuillez saisir une clé valide.');
   }
@@ -258,15 +297,13 @@ let is3DMode = false;
 let map = null;
 
 function getStyleUrl(styleName) {
+  if (styleName === 'osm' || !MAPTILER_KEY) return osmStyle;
   return `https://api.maptiler.com/maps/${styleName}/style.json?key=${MAPTILER_KEY}`;
 }
 
 function initMap() {
-  if (!MAPTILER_KEY) { openKeyModal(); return; }
-  if (map) map.remove();
-
-  const selectedStyle = document.getElementById('mapStyleSelect').value;
-
+  const selectedStyle = mapStyleSelect.value;
+  
   map = new maplibregl.Map({
     container: 'map',
     style: getStyleUrl(selectedStyle),
@@ -285,7 +322,7 @@ function initMap() {
   });
 
   map.on('style.load', () => {
-    apply3DTerrain();
+    if (is3DMode) apply3DTerrain();
     restoreTracksOnMap();
     initTrackerLayer();
     if (activeTrackId) setTrackPositionByRatio(currentRatio);
@@ -327,8 +364,12 @@ function initTrackerLayer() {
   }
 }
 
-document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
-  if (!map || !MAPTILER_KEY) return;
+mapStyleSelect.addEventListener('change', (e) => {
+  if (e.target.value !== 'osm' && !MAPTILER_KEY) {
+    openKeyModal('style');
+    return;
+  }
+  if (!map) return;
   map.setStyle(getStyleUrl(e.target.value));
 });
 
@@ -352,7 +393,7 @@ let activeTrackId = null;
 
 let isPlaying = false;
 let playAnimationId = null;
-let currentRatio = 0; // Entre 0 et 1
+let currentRatio = 0; 
 let lastFrameTime = 0;
 
 let currentCamBearing = 0;
@@ -400,11 +441,20 @@ function resizeCanvas() {
 window.addEventListener('resize', () => { resizeCanvas(); if (map) map.resize(); });
 
 btn3D.addEventListener('click', () => {
+  if (!is3DMode && !MAPTILER_KEY) {
+    openKeyModal('3d');
+    return;
+  }
   is3DMode = !is3DMode;
   btn3D.classList.toggle('active', is3DMode);
   if (map) {
-    if (is3DMode) apply3DTerrain();
-    map.easeTo({ pitch: is3DMode ? 60 : 0, duration: 800 });
+    if (is3DMode) {
+      apply3DTerrain();
+      map.easeTo({ pitch: 60, duration: 800 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch: 0, duration: 800 });
+    }
   }
 });
 
@@ -437,7 +487,6 @@ function readFile(file) {
   reader.readAsText(file, 'UTF-8');
 }
 
-// FIX v3.2 : Lecture du temps (balise <time>)
 function parseGPX(text) {
   const xml = new DOMParser().parseFromString(text, 'application/xml');
   if (xml.querySelector('parsererror')) throw new Error('XML corrompu.');
@@ -460,7 +509,6 @@ function calculateTrackData(points) {
   const trackPts = [];
   let lastEle = points[0] ? points[0].ele : null;
   
-  // Analyse du temps
   const hasTime = points.length > 0 && points[0].time !== null && points[points.length-1].time !== null;
   const startTime = hasTime ? points[0].time : 0;
   const totalTime = hasTime ? points[points.length-1].time - startTime : 0;
@@ -479,15 +527,13 @@ function calculateTrackData(points) {
       lastEle = pt.ele;
     }
     
-    // Détermination de la fraction d'avancement pour l'animation (basé sur le temps si dispo, sinon distance)
     let fraction = 0;
     if (hasTime && totalTime > 0) fraction = (pt.time - startTime) / totalTime;
-    else fraction = cumDist; // Sera normalisé plus bas si on utilise la distance
+    else fraction = cumDist;
 
     trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, fraction });
   }
 
-  // Normalisation de la fraction si on n'a pas de temps GPS
   if (!hasTime && cumDist > 0) {
     trackPts.forEach(p => p.fraction = p.fraction / cumDist);
   }
@@ -587,10 +633,8 @@ function drawElevationProfile() {
   ctx.lineWidth = 2 * window.devicePixelRatio;
   ctx.stroke();
 
-  // Dessin du curseur avec ratio
   const cx = padding + currentRatio * plotW;
   
-  // Trouver l'élévation courante estimée
   let curEle = minEle;
   for (let i = 0; i < pts.length - 1; i++) {
     if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) {
@@ -636,7 +680,6 @@ canvasWrap.addEventListener('pointerdown', e => { isPointerDown = true; handleCa
 canvasWrap.addEventListener('pointermove', e => { if (isPointerDown) handleCanvasPointer(e); });
 window.addEventListener('pointerup', () => isPointerDown = false);
 
-// FIX v3.2 : Position basée sur un ratio de temps (0 à 1)
 function setTrackPositionByRatio(ratio) {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr || !activeTr.data.points.length) return;
@@ -683,9 +726,8 @@ function setTrackPositionByRatio(ratio) {
         if (isNaN(currentCamBearing)) currentCamBearing = targetBearing;
 
         if (camMode === 'threshold') {
-          // FIX v3.2 : Véritable logique de Deadzone (Seuil)
           let da = (rawBearing - currentCamBearing) % 360;
-          let diff = (2 * da) % 360 - da; // -180 à 180
+          let diff = (2 * da) % 360 - da; 
           
           if (Math.abs(diff) > CAM_THRESHOLD_ANGLE) {
             let correction = diff > 0 ? diff - CAM_THRESHOLD_ANGLE : diff + CAM_THRESHOLD_ANGLE;
@@ -728,7 +770,6 @@ function playStep(timestamp) {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr) return;
 
-  // Calcul du pas en fonction de la durée choisie
   const durationSec = parseFloat(animDurationSelect.value);
   const ratioDelta = (deltaTime / 1000) / durationSec;
   
