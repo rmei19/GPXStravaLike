@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.3</title>
+<title>GPX Compare v3.4</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -61,9 +61,6 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 #map-container{flex:1;position:relative;width:100%;min-height:200px}
 #map{position:absolute;inset:0;width:100%;height:100%}
 
-/* Mode Cinéma */
-#layout.cinema #side { display: none !important; }
-
 /* Profil / Controls */
 #profile-container{background:var(--bg-panel);color:var(--text-main);border-top:1px solid var(--border-color);padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex:none;z-index:950}
 #profile-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600}
@@ -102,6 +99,60 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .track button{padding:3px 6px;font-size:11px;background:var(--bg-card);color:var(--text-main)}
 .track.hidden{opacity:.45}
 
+/* =========================================
+   MODE CINEMA PUR
+   ========================================= */
+body.cinema-mode #topbar,
+body.cinema-mode #drop,
+body.cinema-mode #status,
+body.cinema-mode #profile-container,
+body.cinema-mode #side {
+  display: none !important;
+}
+
+#cinema-overlay {
+  display: none;
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 31, 35, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 10px 20px;
+  border-radius: 50px;
+  z-index: 2000;
+  border: 1px solid rgba(255,255,255,0.2);
+  align-items: center;
+  gap: 15px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+body.cinema-mode #cinema-overlay {
+  display: flex;
+}
+
+#cinema-overlay button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+#cinema-overlay button#btnCinemaExit {
+  background: #e53935;
+}
+#cinema-stats {
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 130px;
+  text-align: center;
+}
+
 .mobile-only{display:none}
 
 @media(max-width:700px){
@@ -127,7 +178,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 <div id="keyModal" class="modal-overlay hidden">
   <div class="modal-box">
     <h3>🔑 Configuration MapTiler</h3>
-    <p>Pour utiliser la 3D et les fonds de cartes détaillés, saisis ta clé API MapTiler. Elle sera conservée uniquement dans ton navigateur.</p>
+    <p>Pour utiliser la 3D et les bâtiments (fonds Topo/Rando), saisis ta clé API MapTiler.</p>
     <input type="text" id="apiKeyInput" placeholder="Ex: eXamPleKeY123456">
     <div class="modal-actions">
       <button id="closeKeyBtn">Annuler</button>
@@ -137,7 +188,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </div>
 
 <div id="topbar">
-  <h1>🚴 GPX Compare v3.3.2</h1>
+  <h1>🚴 GPX Compare v3.4</h1>
   <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
   <select id="mapStyleSelect">
     <option value="osm" selected>🗺️ OpenStreetMap (Gratuit)</option>
@@ -151,10 +202,10 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
     <option value="light">☀️ Clair</option>
   </select>
   <button id="btn3D">📐 3D</button>
-  <button id="btnExportVideo">🎬 Export Vidéo</button>
+  <button id="btnExportVideo">🎬 Export</button>
   <button id="btnKey">🔑 Clé API</button>
   <button id="btnFullscreen">⛶ Plein écran</button>
-  <button id="btnCinema">🎦 Cinéma</button>
+  <button id="btnCinema">🎦 Mode Cinéma</button>
   <button id="fitBtn">🎯 Recentrer</button>
   <button id="clearBtn">🗑️ Effacer</button>
   <button id="toggleSide" class="mobile-only">📋 Sorties</button>
@@ -167,6 +218,16 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
   <div id="main-view">
     <div id="map-container">
       <div id="map"></div>
+      
+      <!-- Overlay Cinéma -->
+      <div id="cinema-overlay">
+        <button id="btnCinemaPlay">▶ Jouer</button>
+        <div id="cinema-stats">
+          <span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span>
+        </div>
+        <button id="btnCinemaExit">✕ Quitter</button>
+      </div>
+
     </div>
     
     <div id="profile-container">
@@ -324,7 +385,6 @@ function initMap() {
     }
   });
 
-  // L'événement crucial qui recharge toutes tes données personnalisées au changement de fond de carte
   map.on('style.load', () => {
     if (is3DMode) apply3DTerrain();
     apply3DBuildings();
@@ -352,6 +412,8 @@ function apply3DTerrain() {
 function apply3DBuildings() {
   if (!map || !map.getStyle().layers) return;
   const layers = map.getStyle().layers;
+  
+  // Cherche une couche bâtiment dans le fond vectoriel
   const buildingLayer = layers.find(l => (l.id.includes('building') || l.sourceLayer === 'building') && l.type !== 'fill-extrusion');
   
   if (buildingLayer && !map.getLayer('3d-buildings')) {
@@ -365,9 +427,9 @@ function apply3DBuildings() {
         'fill-extrusion-color': '#d1d1d1',
         'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
         'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
-        'fill-extrusion-opacity': 0.6
+        'fill-extrusion-opacity': 0.8
       }
-    }, buildingLayer.id); // On l'insère au niveau de la couche bâtiment 2D
+    }, buildingLayer.id); 
   }
 }
 
@@ -389,6 +451,11 @@ function initTrackerLayer() {
         'circle-stroke-color': '#ffffff'
       }
     });
+  } else {
+    // Si la couche existe déjà (changement de style ou 2D/3D), on force sa position en haut
+    if (map.getLayer('tracker-layer')) {
+      map.moveLayer('tracker-layer'); 
+    }
   }
 }
 
@@ -415,15 +482,22 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   if (themeSelect.value === 'system') applyTheme('system');
 });
 
-// Mode Cinéma
+// =====================================
+// GESTION DU MODE CINÉMA (Nouveau)
+// =====================================
 const btnCinema = document.getElementById('btnCinema');
+const btnCinemaExit = document.getElementById('btnCinemaExit');
 let isCinemaMode = false;
-btnCinema.addEventListener('click', () => {
+
+function toggleCinemaMode() {
   isCinemaMode = !isCinemaMode;
-  document.getElementById('layout').classList.toggle('cinema', isCinemaMode);
-  btnCinema.classList.toggle('active', isCinemaMode);
+  document.body.classList.toggle('cinema-mode', isCinemaMode);
   setTimeout(() => { if (map) map.resize(); resizeCanvas(); }, 300);
-});
+}
+
+btnCinema.addEventListener('click', toggleCinemaMode);
+btnCinemaExit.addEventListener('click', toggleCinemaMode);
+
 
 const colors = ['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b','#6d4c41','#3949ab','#d81b60','#546e7a'];
 let tracks = [], colorIndex = 0;
@@ -454,6 +528,7 @@ const canvasWrap = document.getElementById('canvas-wrap');
 
 const trackSlider = document.getElementById('trackSlider');
 const btnPlay = document.getElementById('btnPlay');
+const btnCinemaPlay = document.getElementById('btnCinemaPlay');
 const btn3D = document.getElementById('btn3D');
 const btnExportVideo = document.getElementById('btnExportVideo');
 
@@ -464,6 +539,8 @@ const stDist = document.getElementById('stDist');
 const stAlt = document.getElementById('stAlt');
 const stDplus = document.getElementById('stDplus');
 const stProg = document.getElementById('stProg');
+const cDist = document.getElementById('c-dist');
+const cAlt = document.getElementById('c-alt');
 
 document.getElementById('btnFullscreen').addEventListener('click', () => {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => alert(err.message));
@@ -471,7 +548,9 @@ document.getElementById('btnFullscreen').addEventListener('click', () => {
 });
 
 function resizeCanvas() {
+  if (isCinemaMode) return; // Ne calcule pas le canvas s'il est caché
   const rect = canvasWrap.getBoundingClientRect();
+  if(rect.width === 0) return;
   canvas.width = rect.width * window.devicePixelRatio;
   canvas.height = rect.height * window.devicePixelRatio;
   drawElevationProfile();
@@ -603,7 +682,6 @@ function renderTrackOnMap(t) {
   if (!map) return;
   const coordinates = t.data.points.map(p => [p.lon, p.lat]);
   
-  // Enlève l'ancienne source si elle existe (pour la réinitialiser proprement au besoin)
   if (!map.getSource(t.id)) {
     map.addSource(t.id, {
       'type': 'geojson',
@@ -614,8 +692,19 @@ function renderTrackOnMap(t) {
       'layout': { 'line-join': 'round', 'line-cap': 'round' },
       'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 }
     });
+  } else {
+    // Si la couche existe déjà, on s'assure qu'elle remonte au-dessus des autres (très utile en 2D)
+    if(map.getLayer(t.id)) {
+      map.moveLayer(t.id);
+    }
   }
+  
   map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
+  
+  // On s'assure que le point du tracker reste au-dessus de la ligne qu'on vient d'ajouter
+  if (map.getLayer('tracker-layer')) {
+    map.moveLayer('tracker-layer');
+  }
 }
 
 function restoreTracksOnMap() { tracks.forEach(t => renderTrackOnMap(t)); }
@@ -641,6 +730,8 @@ function setActiveTrack(id) {
 }
 
 function drawElevationProfile() {
+  if(isCinemaMode || canvas.width === 0) return;
+  
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
@@ -794,6 +885,10 @@ function setTrackPositionByRatio(ratio) {
   stAlt.textContent = currentEle !== null ? Math.round(currentEle) + ' m' : '-- m';
   stDplus.textContent = Math.round(currentDplus) + ' m';
   stProg.textContent = Math.round(currentRatio * 100) + '%';
+  
+  // Update Cinema Overlay stats
+  cDist.textContent = formatDistance(currentDist) + ' km';
+  cAlt.textContent = currentEle !== null ? Math.round(currentEle) + ' m' : '-- m';
 
   drawElevationProfile();
 }
@@ -831,8 +926,11 @@ function playTrack() {
   if (currentRatio >= 1) currentRatio = 0;
   isPlaying = true;
   lastFrameTime = 0;
+  
   btnPlay.textContent = '⏸';
   btnPlay.classList.add('active');
+  btnCinemaPlay.textContent = '⏸ Pause';
+  
   playAnimationId = requestAnimationFrame(playStep);
 }
 
@@ -840,10 +938,17 @@ function pauseTrack() {
   isPlaying = false;
   btnPlay.textContent = '▶';
   btnPlay.classList.remove('active');
+  btnCinemaPlay.textContent = '▶ Jouer';
+  
   if (playAnimationId) cancelAnimationFrame(playAnimationId);
 }
 
-btnPlay.addEventListener('click', () => { if (isPlaying) pauseTrack(); else playTrack(); });
+function togglePlay() {
+  if (isPlaying) pauseTrack(); else playTrack();
+}
+
+btnPlay.addEventListener('click', togglePlay);
+btnCinemaPlay.addEventListener('click', togglePlay);
 
 let isRecording = false;
 let mediaRecorder = null;
@@ -878,7 +983,7 @@ btnExportVideo.addEventListener('click', async () => {
     URL.revokeObjectURL(url);
     
     setStatus('Export vidéo terminé !');
-    btnExportVideo.textContent = '🎬 Export Vidéo';
+    btnExportVideo.textContent = '🎬 Export';
     btnExportVideo.style.backgroundColor = '';
     btnExportVideo.style.color = '';
   };
