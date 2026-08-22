@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.0</title>
+<title>GPX Compare v3.1</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -133,7 +133,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </div>
 
 <div id="topbar">
-  <h1>🚴 GPX Compare v3.0</h1>
+  <h1>🚴 GPX Compare v3.1</h1>
   <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
   <select id="mapStyleSelect">
     <option value="outdoor-v2">🌲 Rando / Outdoor</option>
@@ -279,10 +279,17 @@ function initMap() {
     pitch: 0,
     bearing: 0,
     maxPitch: 85,
-    preserveDrawingBuffer: true
+    preserveDrawingBuffer: true,
+    // FIX v3.1 : Injecte la clé API dans toutes les sous-requêtes MapTiler (corrige le bug satellite)
+    transformRequest: (url, resourceType) => {
+      if (url.indexOf('maptiler.com') !== -1 && url.indexOf('key=') === -1) {
+        return { url: url + (url.indexOf('?') === -1 ? '?' : '&') + 'key=' + MAPTILER_KEY };
+      }
+      return { url: url };
+    }
   });
 
-  // Gère l'initialisation et la reconstruction des couches à chaque chargement de style (y compris setStyle)
+  // FIX v3.1 : S'assure que les couches sont reconstruites à chaque changement de style
   map.on('style.load', () => {
     apply3DTerrain();
     restoreTracksOnMap();
@@ -297,7 +304,6 @@ function initMap() {
 
 function apply3DTerrain() {
   if (!map || !MAPTILER_KEY) return;
-
   if (!map.getSource('maptiler-dem')) {
     map.addSource('maptiler-dem', {
       'type': 'raster-dem',
@@ -306,7 +312,6 @@ function apply3DTerrain() {
       'maxzoom': 14
     });
   }
-
   map.setTerrain({ 'source': 'maptiler-dem', 'exaggeration': 1.2 });
 }
 
@@ -315,10 +320,7 @@ function initTrackerLayer() {
   if (!map.getSource('tracker-source')) {
     map.addSource('tracker-source', {
       type: 'geojson',
-      data: {
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [0, 0] }
-      }
+      data: { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] } }
     });
     map.addLayer({
       id: 'tracker-layer',
@@ -516,7 +518,6 @@ function renderTrackOnMap(t) {
       'layout': { 'line-join': 'round', 'line-cap': 'round' },
       'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 }
     });
-    // Applique l'état de visibilité mémorisé
     map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
   }
 }
@@ -535,6 +536,9 @@ function setActiveTrack(id) {
   trackSlider.disabled = false;
   trackSlider.max = tr.data.points.length - 1;
   trackSlider.value = 0;
+
+  // FIX v3.1 : Réinitialisation propre de la caméra
+  currentCamBearing = map ? map.getBearing() : 0; 
 
   activeTrackNameEl.textContent = tr.name;
   activeTrackStatsEl.textContent = `${formatDistance(tr.data.totalDist)} km · +${Math.round(tr.data.totalDplus)}m D+`;
@@ -649,11 +653,7 @@ function setTrackPosition(index) {
     const trackerSource = map.getSource('tracker-source');
     if (trackerSource) {
       trackerSource.setData({
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [currentLon, currentLat]
-        }
+        type: 'Feature', geometry: { type: 'Point', coordinates: [currentLon, currentLat] }
       });
     }
 
@@ -666,6 +666,10 @@ function setTrackPosition(index) {
         targetBearing = 0;
       } else {
         let rawBearing = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+        
+        // FIX v3.1 : Protection contre les NaN si les points sont identiques
+        if (isNaN(rawBearing)) rawBearing = targetBearing;
+        if (isNaN(currentCamBearing)) currentCamBearing = targetBearing;
 
         if (camMode === 'threshold') {
           let diff = Math.abs(rawBearing - currentCamBearing);
@@ -745,22 +749,16 @@ btnSpeed.addEventListener('click', () => {
   btnSpeed.textContent = 'x' + playSpeed;
 });
 
-/* Export Vidéo en Temps Réel */
 let isRecording = false;
 let mediaRecorder = null;
 let recordInterval = null;
 
 btnExportVideo.addEventListener('click', async () => {
   const activeTr = tracks.find(t => t.id === activeTrackId);
-  if (!activeTr) {
-    alert('Veuillez sélectionner un parcours.');
-    return;
-  }
+  if (!activeTr) { alert('Veuillez sélectionner un parcours.'); return; }
 
   if (isRecording) {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-    }
+    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
     return;
   }
 
@@ -814,7 +812,6 @@ function sortAndRenderTracks() {
   if (mode === 'name') tracks.sort((a, b) => a.name.localeCompare(b.name));
   else if (mode === 'dist') tracks.sort((a, b) => b.data.totalDist - a.data.totalDist);
   else if (mode === 'dplus') tracks.sort((a, b) => b.data.totalDplus - a.data.totalDplus);
-
   renderList();
 }
 
@@ -850,13 +847,8 @@ function renderList() {
       </div>
     `;
 
-    div.addEventListener('dragstart', (e) => {
-      e.dataTransfer.setData('text/plain', index);
-      div.classList.add('dragging');
-      sortSelect.value = 'manual';
-    });
+    div.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', index); div.classList.add('dragging'); sortSelect.value = 'manual'; });
     div.addEventListener('dragend', () => div.classList.remove('dragging'));
-
     div.addEventListener('dragover', (e) => e.preventDefault());
     div.addEventListener('drop', (e) => {
       e.preventDefault();
@@ -932,6 +924,7 @@ function haversine(lat1, lon1, lat2, lon2) {
 }
 
 function calculateBearing(lat1, lon1, lat2, lon2) {
+  if (lat1 === lat2 && lon1 === lon2) return NaN; // FIX v3.1 : Évite les NaN si les points se superposent
   const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
   const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
             Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);

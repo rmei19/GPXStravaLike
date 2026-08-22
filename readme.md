@@ -1,4 +1,4 @@
-# 🚴 GPX Compare v3.0
+# 🚴 GPX Compare v3.1
 
 GPX Compare est une application web légère, contenue dans un seul fichier HTML, permettant de visualiser, comparer et animer des traces GPX en 3D directement dans le navigateur.
 
@@ -20,15 +20,17 @@ GPX Compare est une application web légère, contenue dans un seul fichier HTML
 ## 🛠️ Configuration & Utilisation
 
 1. **Installation :** Aucun serveur n'est requis. Ouvre simplement le fichier `index.html` dans un navigateur web moderne (Chrome, Firefox, Edge, Safari).
+   * ⚠️ **Utilisateurs de Brave :** Désactivez le "Bouclier" (Shields) sur la page pour éviter que la protection contre l'empreinte numérique (Canvas Fingerprinting) ne fasse saccader/danser la carte 3D.
 2. **Clé API MapTiler :**
    * L'application nécessite une clé API gratuite de [MapTiler](https://www.maptiler.com/) pour charger les fonds de carte et le modèle d'élévation 3D (DEM).
    * Au premier lancement, une fenêtre te demandera de saisir cette clé.
    * Elle est stockée localement dans ton navigateur (`localStorage`) et peut être modifiée via le bouton **🔑 Clé API**.
 
-## 🚀 Nouveautés de la v3.0
+## 🚀 Nouveautés de la v3.1
 
-* **Persistance des tracés :** Correction du bug de disparition des lignes GPX et du curseur lors du changement de fond de carte (Satellite, Topo, etc.).
-* **Stabilité renforcée :** Fiabilisation du chargement des styles MapLibre, en particulier pour la vue Satellite qui posait des soucis de validation de clé API.
+* **Stabilité du fond de carte Satellite :** Injection sécurisée de la clé API dans toutes les sous-requêtes de tuiles pour éviter les échecs de chargement.
+* **Correction de la caméra `Seuil 25°` :** Protection mathématique (`NaN`) empêchant la caméra de se figer lors d'une réinitialisation de la lecture.
+* **Persistance des tracés (v3.0) :** Les lignes GPX et le curseur restent désormais visibles lors du changement de fond de carte.
 
 ## 💻 Technologies Utilisées
 
