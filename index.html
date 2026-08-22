@@ -61,6 +61,9 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 #map-container{flex:1;position:relative;width:100%;min-height:200px}
 #map{position:absolute;inset:0;width:100%;height:100%}
 
+/* Mode Cinéma */
+#layout.cinema #side { display: none !important; }
+
 /* Profil / Controls */
 #profile-container{background:var(--bg-panel);color:var(--text-main);border-top:1px solid var(--border-color);padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex:none;z-index:950}
 #profile-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600}
@@ -78,7 +81,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 #tracker-stats-bar{display:flex;gap:10px;font-size:11px;color:var(--text-sub);font-weight:500;width:100%;overflow-x:auto;white-space:nowrap;padding-top:2px}
 
 /* Side panel */
-#side{width:320px;max-width:35%;background:var(--bg-panel);color:var(--text-main);border-left:1px solid var(--border-color);padding:10px;display:flex;flex-direction:column;z-index:1500}
+#side{width:320px;max-width:35%;background:var(--bg-panel);color:var(--text-main);border-left:1px solid var(--border-color);padding:10px;display:flex;flex-direction:column;z-index:1500; transition: transform 0.3s ease;}
 #sideHeaderHandle{display:none}
 #side h2{font-size:15px;margin:0 0 6px}
 #side-tools{display:flex;gap:6px;margin-bottom:8px}
@@ -110,7 +113,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
   #side{
     position:fixed;left:0;right:0;bottom:0;width:100%;max-width:none;height:60vh;
     border:0;border-top:1px solid var(--border-color);border-radius:14px 14px 0 0;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
-    box-shadow:0 -4px 18px rgba(0,0,0,.5);transform:translateY(calc(100% - 38px));transition:transform .25s ease-in-out;
+    box-shadow:0 -4px 18px rgba(0,0,0,.5);transform:translateY(calc(100% - 38px));transition:transform .3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   #side.open{transform:translateY(0)}
   #sideHeader{cursor:pointer;padding-bottom:4px}
@@ -134,7 +137,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </div>
 
 <div id="topbar">
-  <h1>🚴 GPX Compare v3.3</h1>
+  <h1>🚴 GPX Compare v3.3.2</h1>
   <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
   <select id="mapStyleSelect">
     <option value="osm" selected>🗺️ OpenStreetMap (Gratuit)</option>
@@ -151,8 +154,9 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
   <button id="btnExportVideo">🎬 Export Vidéo</button>
   <button id="btnKey">🔑 Clé API</button>
   <button id="btnFullscreen">⛶ Plein écran</button>
-  <button id="fitBtn">Recentrer</button>
-  <button id="clearBtn">Effacer</button>
+  <button id="btnCinema">🎦 Cinéma</button>
+  <button id="fitBtn">🎯 Recentrer</button>
+  <button id="clearBtn">🗑️ Effacer</button>
   <button id="toggleSide" class="mobile-only">📋 Sorties</button>
 </div>
 
@@ -237,7 +241,7 @@ const closeKeyBtn = document.getElementById('closeKeyBtn');
 const btnKey = document.getElementById('btnKey');
 const mapStyleSelect = document.getElementById('mapStyleSelect');
 
-let pendingAction = null; // Stocke l'action en attente de la clé
+let pendingAction = null; 
 
 const osmStyle = {
   "version": 8,
@@ -266,7 +270,7 @@ function openKeyModal(action = null) {
 
 closeKeyBtn.addEventListener('click', () => {
   keyModal.classList.add('hidden');
-  if (pendingAction === 'style') mapStyleSelect.value = 'osm'; // Revenir à OSM si annulation
+  if (pendingAction === 'style') mapStyleSelect.value = 'osm'; 
   pendingAction = null;
 });
 
@@ -279,7 +283,6 @@ saveKeyBtn.addEventListener('click', () => {
     localStorage.setItem('maptiler_api_key', val);
     keyModal.classList.add('hidden');
     
-    // Reprendre l'action interrompue
     if (pendingAction === '3d') {
       btn3D.click();
     } else if (pendingAction === 'style' || pendingAction === 'init') {
@@ -321,12 +324,15 @@ function initMap() {
     }
   });
 
+  // L'événement crucial qui recharge toutes tes données personnalisées au changement de fond de carte
   map.on('style.load', () => {
     if (is3DMode) apply3DTerrain();
+    apply3DBuildings();
     restoreTracksOnMap();
     initTrackerLayer();
     if (activeTrackId) setTrackPositionByRatio(currentRatio);
   });
+  
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
 }
 
@@ -341,6 +347,28 @@ function apply3DTerrain() {
     });
   }
   map.setTerrain({ 'source': 'maptiler-dem', 'exaggeration': 1.2 });
+}
+
+function apply3DBuildings() {
+  if (!map || !map.getStyle().layers) return;
+  const layers = map.getStyle().layers;
+  const buildingLayer = layers.find(l => (l.id.includes('building') || l.sourceLayer === 'building') && l.type !== 'fill-extrusion');
+  
+  if (buildingLayer && !map.getLayer('3d-buildings')) {
+    map.addLayer({
+      'id': '3d-buildings',
+      'source': buildingLayer.source,
+      'source-layer': buildingLayer['source-layer'],
+      'type': 'fill-extrusion',
+      'minzoom': 14,
+      'paint': {
+        'fill-extrusion-color': '#d1d1d1',
+        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
+        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
+        'fill-extrusion-opacity': 0.6
+      }
+    }, buildingLayer.id); // On l'insère au niveau de la couche bâtiment 2D
+  }
 }
 
 function initTrackerLayer() {
@@ -385,6 +413,16 @@ function applyTheme(theme) {
 themeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
   if (themeSelect.value === 'system') applyTheme('system');
+});
+
+// Mode Cinéma
+const btnCinema = document.getElementById('btnCinema');
+let isCinemaMode = false;
+btnCinema.addEventListener('click', () => {
+  isCinemaMode = !isCinemaMode;
+  document.getElementById('layout').classList.toggle('cinema', isCinemaMode);
+  btnCinema.classList.toggle('active', isCinemaMode);
+  setTimeout(() => { if (map) map.resize(); resizeCanvas(); }, 300);
 });
 
 const colors = ['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b','#6d4c41','#3949ab','#d81b60','#546e7a'];
@@ -562,8 +600,10 @@ function addGPX(name, text) {
 }
 
 function renderTrackOnMap(t) {
-  if (!map || !map.isStyleLoaded()) return;
+  if (!map) return;
   const coordinates = t.data.points.map(p => [p.lon, p.lat]);
+  
+  // Enlève l'ancienne source si elle existe (pour la réinitialiser proprement au besoin)
   if (!map.getSource(t.id)) {
     map.addSource(t.id, {
       'type': 'geojson',
@@ -574,8 +614,8 @@ function renderTrackOnMap(t) {
       'layout': { 'line-join': 'round', 'line-cap': 'round' },
       'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 }
     });
-    map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
   }
+  map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
 }
 
 function restoreTracksOnMap() { tracks.forEach(t => renderTrackOnMap(t)); }
