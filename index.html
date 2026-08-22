@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v2.6</title>
+<title>GPX Compare v2.8</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -133,7 +133,7 @@ button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 </div>
 
 <div id="topbar">
-  <h1>🚴 GPX Compare v2.6</h1>
+  <h1>🚴 GPX Compare v2.8</h1>
   <label class="file-label">📂 GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
   <select id="mapStyleSelect">
     <option value="outdoor-v2">🌲 Rando / Outdoor</option>
@@ -272,29 +272,61 @@ function initMap() {
     zoom: 5.5,
     pitch: 0,
     bearing: 0,
+    maxPitch: 85,
     preserveDrawingBuffer: true
   });
 
-  map.on('load', () => { apply3DTerrain(); restoreTracksOnMap(); });
+  map.on('style.load', () => {
+    apply3DTerrain();
+    restoreTracksOnMap();
+    initTrackerLayer();
+  });
+
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
 }
 
 function apply3DTerrain() {
   if (!map || !MAPTILER_KEY) return;
+
   if (!map.getSource('maptiler-dem')) {
     map.addSource('maptiler-dem', {
       'type': 'raster-dem',
       'url': `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`,
-      'tileSize': 512
+      'tileSize': 512,
+      'maxzoom': 14
     });
   }
+
   map.setTerrain({ 'source': 'maptiler-dem', 'exaggeration': 1.2 });
+}
+
+function initTrackerLayer() {
+  if (!map) return;
+  if (!map.getSource('tracker-source')) {
+    map.addSource('tracker-source', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [0, 0] }
+      }
+    });
+    map.addLayer({
+      id: 'tracker-layer',
+      type: 'circle',
+      source: 'tracker-source',
+      paint: {
+        'circle-radius': 7,
+        'circle-color': '#00aaff',
+        'circle-stroke-width': 3,
+        'circle-stroke-color': '#ffffff'
+      }
+    });
+  }
 }
 
 document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
   if (!map || !MAPTILER_KEY) return;
   map.setStyle(`https://api.maptiler.com/maps/${e.target.value}/style.json?key=${MAPTILER_KEY}`);
-  map.once('style.load', () => { apply3DTerrain(); restoreTracksOnMap(); });
 });
 
 const themeSelect = document.getElementById('themeSelect');
@@ -314,15 +346,6 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 const colors = ['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b','#6d4c41','#3949ab','#d81b60','#546e7a'];
 let tracks = [], colorIndex = 0;
 let activeTrackId = null;
-
-let trackerMarkerElement = document.createElement('div');
-trackerMarkerElement.style.width = '16px';
-trackerMarkerElement.style.height = '16px';
-trackerMarkerElement.style.backgroundColor = '#00aaff';
-trackerMarkerElement.style.border = '3px solid #ffffff';
-trackerMarkerElement.style.borderRadius = '50%';
-trackerMarkerElement.style.boxShadow = '0 0 10px rgba(0,0,0,0.8)';
-let trackerMarker = null;
 
 let isPlaying = false;
 let playAnimationId = null;
@@ -380,7 +403,10 @@ window.addEventListener('resize', () => { resizeCanvas(); if (map) map.resize();
 btn3D.addEventListener('click', () => {
   is3DMode = !is3DMode;
   btn3D.classList.toggle('active', is3DMode);
-  if (map) map.easeTo({ pitch: is3DMode ? 55 : 0, duration: 600 });
+  if (map) {
+    if (is3DMode) apply3DTerrain();
+    map.easeTo({ pitch: is3DMode ? 60 : 0, duration: 800 });
+  }
 });
 
 function setSideOpen(open) {
@@ -468,7 +494,7 @@ function addGPX(name, text) {
 }
 
 function renderTrackOnMap(t) {
-  if (!map) return;
+  if (!map || !map.isStyleLoaded()) return;
   const coordinates = t.data.points.map(p => [p.lon, p.lat]);
   if (!map.getSource(t.id)) {
     map.addSource(t.id, {
@@ -606,12 +632,15 @@ function setTrackPosition(index) {
   const currentDist = p1.dist + (p2.dist - p1.dist) * frac;
 
   if (map) {
-    if (!trackerMarker) {
-      trackerMarker = new maplibregl.Marker({ element: trackerMarkerElement })
-        .setLngLat([currentLon, currentLat])
-        .addTo(map);
-    } else {
-      trackerMarker.setLngLat([currentLon, currentLat]);
+    const trackerSource = map.getSource('tracker-source');
+    if (trackerSource) {
+      trackerSource.setData({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [currentLon, currentLat]
+        }
+      });
     }
 
     const camMode = document.getElementById('camModeSelect').value;
@@ -640,8 +669,8 @@ function setTrackPosition(index) {
 
       map.jumpTo({
         center: [currentLon, currentLat],
-        zoom: is3DMode ? 15.5 : 14.5,
-        pitch: is3DMode ? 55 : 0,
+        zoom: map.getZoom(),
+        pitch: is3DMode ? 60 : 0,
         bearing: targetBearing
       });
     }
@@ -702,7 +731,11 @@ btnSpeed.addEventListener('click', () => {
   btnSpeed.textContent = 'x' + playSpeed;
 });
 
-/* Export Vidéo Image par Image */
+/* Export Vidéo en Temps Réel */
+let isRecording = false;
+let mediaRecorder = null;
+let recordInterval = null;
+
 btnExportVideo.addEventListener('click', async () => {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr) {
@@ -710,50 +743,54 @@ btnExportVideo.addEventListener('click', async () => {
     return;
   }
 
-  pauseTrack();
-  btnExportVideo.disabled = true;
+  if (isRecording) {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+    }
+    return;
+  }
 
   const mapCanvas = map.getCanvas();
-  const stream = mapCanvas.captureStream(0); // Capture manuelle frame par frame
-  const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+  const stream = mapCanvas.captureStream(30);
+  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
   const chunks = [];
 
   mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
   mediaRecorder.onstop = () => {
+    pauseTrack();
+    clearInterval(recordInterval);
+    isRecording = false;
+    
     const blob = new Blob(chunks, { type: 'video/webm' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
+    a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d_temps_reel.webm`;
     a.click();
     URL.revokeObjectURL(url);
+    
     setStatus('Export vidéo terminé !');
-    btnExportVideo.disabled = false;
     btnExportVideo.textContent = '🎬 Export Vidéo';
+    btnExportVideo.style.backgroundColor = '';
+    btnExportVideo.style.color = '';
   };
 
   mediaRecorder.start();
+  isRecording = true;
   
-  const totalFrames = 150; // Nombre total d'images dans la vidéo générée
-  const step = (activeTr.data.points.length - 1) / totalFrames;
+  btnExportVideo.textContent = '⏹ Arrêter l\'enregistrement';
+  btnExportVideo.style.backgroundColor = '#e53935';
+  btnExportVideo.style.color = '#fff';
+  setStatus('🔴 Enregistrement en direct en cours...');
 
-  for (let i = 0; i <= totalFrames; i++) {
-    const targetIdx = i * step;
-    setTrackPosition(targetIdx);
+  setTrackPosition(0);
+  playTrack();
 
-    // Attente du rendu complet de MapLibre
-    await new Promise(resolve => map.once('render', resolve));
-
-    // Déclenchement de la capture de la frame
-    if (stream.getVideoTracks()[0].requestFrame) {
-      stream.getVideoTracks()[0].requestFrame();
+  recordInterval = setInterval(() => {
+    if (currentPointIndex >= activeTr.data.points.length - 1) {
+      if (mediaRecorder.state === 'recording') mediaRecorder.stop();
     }
-    
-    btnExportVideo.textContent = `⏳ ${Math.round((i / totalFrames) * 100)}%`;
-    setStatus(`Génération de la vidéo : ${Math.round((i / totalFrames) * 100)}%`);
-  }
-
-  mediaRecorder.stop();
+  }, 500);
 });
 
 sortSelect.addEventListener('change', () => sortAndRenderTracks());
@@ -823,7 +860,7 @@ function renderList() {
     div.querySelector('.toggle-btn').onclick = (e) => {
       e.stopPropagation();
       t.visible = !t.visible;
-      if (map) map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
+      if (map && map.getLayer(t.id)) map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
       renderList();
     };
 
@@ -837,7 +874,10 @@ function renderList() {
       if (activeTrackId === t.id) {
         activeTrackId = tracks.length ? tracks[0].id : null;
         if (activeTrackId) setActiveTrack(activeTrackId);
-        else if (trackerMarker) { trackerMarker.remove(); trackerMarker = null; }
+        else {
+          const trackerSource = map.getSource('tracker-source');
+          if (trackerSource) trackerSource.setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] } });
+        }
       }
       renderList(); drawElevationProfile(); fitAll();
     };
@@ -866,7 +906,8 @@ document.getElementById('clearBtn').onclick = () => {
     }
   });
   tracks = []; activeTrackId = null; colorIndex = 0;
-  if (trackerMarker) { trackerMarker.remove(); trackerMarker = null; }
+  const trackerSource = map ? map.getSource('tracker-source') : null;
+  if (trackerSource) trackerSource.setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] } });
   renderList(); drawElevationProfile(); setStatus('');
 };
 
