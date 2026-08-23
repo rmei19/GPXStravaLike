@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.10</title>
+<title>GPX Compare v3.11</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -259,7 +259,7 @@ body.cinema-mode #cinema-overlay { display: flex; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.10</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.11</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -457,6 +457,7 @@ function initMap() {
     }
   });
 
+  map.on('render', drawExportFrame);
   map.on('style.load', () => {
     // On restaure d'abord les traces GPX et le curseur : même si l'étape 3D
     // plante plus bas (style sans couche bâtiment exploitable), les traces
@@ -635,6 +636,54 @@ btnCinemaExit.addEventListener('click', () => toggleCinemaMode(false));
 const exportModal = document.getElementById('exportModal');
 const recordIndicator = document.getElementById('record-indicator');
 let isRecording = false, mediaRecorder = null, recordInterval = null;
+let exportCanvas = null, exportCtx = null;
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+// captureStream() sur le canvas de la carte ne récupère QUE le rendu WebGL :
+// la mini-carte et les stats D+/Pente sont des éléments HTML posés par-dessus
+// et n'apparaissaient donc jamais dans la vidéo exportée. On compose ici une
+// image finale (carte + mini-carte + stats) sur un canvas séparé, capturé à
+// la place — à chaque rendu réel de la carte ('render'), pour rester synchro.
+function drawExportFrame() {
+  if (!isRecording || !map) return;
+  const mc = map.getCanvas();
+  if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
+  if (exportCanvas.width !== mc.width || exportCanvas.height !== mc.height) { exportCanvas.width = mc.width; exportCanvas.height = mc.height; }
+  exportCtx.drawImage(mc, 0, 0);
+
+  const dpr = window.devicePixelRatio || 1;
+
+  if (minimapPos !== 'off') {
+    const w = 150 * dpr, h = 110 * dpr, margin = 12 * dpr;
+    const x = minimapPos === 'left' ? margin : exportCanvas.width - w - margin;
+    const y = exportCanvas.height - h - margin;
+    exportCtx.save();
+    exportCtx.fillStyle = 'rgba(30,31,35,0.85)'; exportCtx.strokeStyle = 'rgba(255,255,255,0.25)'; exportCtx.lineWidth = 1;
+    roundRectPath(exportCtx, x, y, w, h, 8 * dpr); exportCtx.fill(); exportCtx.stroke();
+    exportCtx.clip();
+    exportCtx.drawImage(minimapCanvas, x, y, w, h);
+    exportCtx.restore();
+  }
+
+  if (showLiveStats) {
+    const text = `D+ ${document.getElementById('stDplus').textContent}   Pente ${document.getElementById('stPente').textContent}`;
+    exportCtx.save();
+    exportCtx.font = `${15 * dpr}px -apple-system, sans-serif`;
+    exportCtx.textBaseline = 'middle';
+    const padX = 12 * dpr, boxH = 30 * dpr;
+    const boxW = exportCtx.measureText(text).width + padX * 2;
+    const bx = (exportCanvas.width - boxW) / 2, by = exportCanvas.height - boxH - 90 * dpr;
+    exportCtx.fillStyle = 'rgba(20,20,20,0.75)';
+    roundRectPath(exportCtx, bx, by, boxW, boxH, 8 * dpr); exportCtx.fill();
+    exportCtx.fillStyle = '#fff'; exportCtx.textAlign = 'left';
+    exportCtx.fillText(text, bx + padX, by + boxH / 2);
+    exportCtx.restore();
+  }
+}
 
 document.getElementById('btnExportVideoOpen').addEventListener('click', () => {
   if (!activeTrackId) { alert('Charge et sélectionne un tracé d\'abord.'); return; }
@@ -668,7 +717,10 @@ async function startRecording() {
   let fps = quality === 'high' ? 60 : 30;
   let bitrate = quality === 'high' ? 8000000 : 2500000;
 
-  const stream = map.getCanvas().captureStream(fps);
+  isRecording = true; // avant le premier drawExportFrame() pour qu'il ne soit pas ignoré
+  if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
+  drawExportFrame();
+  const stream = exportCanvas.captureStream(fps);
   try {
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: bitrate });
   } catch(e) {
@@ -689,7 +741,6 @@ async function startRecording() {
   };
 
   mediaRecorder.start();
-  isRecording = true;
   recordIndicator.classList.add('active');
   setStatus('🔴 Enregistrement...');
 
@@ -742,8 +793,21 @@ document.getElementById('drop').addEventListener('drop', e => { e.preventDefault
 function loadFiles(files) { files.filter(f => f.name.toLowerCase().endsWith('.gpx') || !f.name.includes('.')).forEach(readFile); }
 function readFile(file) {
   const r = new FileReader();
-  r.onload = () => { addGPX(file.name, r.result); setStatus(file.name + ' chargé.'); };
+  r.onload = () => { addGPX(deriveTrackName(file.name, r.result), r.result); setStatus(file.name + ' chargé.'); };
   r.readAsText(file, 'UTF-8');
+}
+
+// Les GPX exportés (Strava, etc.) embarquent souvent un vrai titre d'activité
+// dans <trk><name> ou <metadata><name>, bien plus lisible que le nom de
+// fichier auto-généré (ex: "export_19862333608.gpx"). On le préfère quand il
+// existe ; sinon on nettoie un minimum le nom de fichier en repli.
+function deriveTrackName(filename, gpxText) {
+  try {
+    const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
+    const trkName = xml.querySelector('trk > name, metadata > name, gpx > name');
+    if (trkName && trkName.textContent.trim()) return trkName.textContent.trim();
+  } catch (e) { /* pas grave, on retombe sur le nom de fichier */ }
+  return filename.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim() || filename;
 }
 
 function parseGPX(text) {
@@ -787,9 +851,16 @@ function renderTrackOnMap(t) {
   if (!map) return;
   if (!map.getSource(t.id)) {
     map.addSource(t.id, { 'type': 'geojson', 'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': t.data.points.map(p => [p.lon, p.lat]) } } });
+    // Couche invisible plus large sous la ligne visible : zone de clic plus
+    // confortable (5px de ligne, c'est très étroit à viser à la souris/au doigt).
+    map.addLayer({ 'id': t.id + '-hit', 'type': 'line', 'source': t.id, 'paint': { 'line-color': '#000', 'line-width': 20, 'line-opacity': 0.01 } });
     map.addLayer({ 'id': t.id, 'type': 'line', 'source': t.id, 'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 } });
+    map.on('click', t.id + '-hit', () => setActiveTrack(t.id));
+    map.on('mouseenter', t.id + '-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', t.id + '-hit', () => { map.getCanvas().style.cursor = ''; });
   }
   map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
+  map.setLayoutProperty(t.id + '-hit', 'visibility', t.visible ? 'visible' : 'none');
   initTrackerLayer();
 }
 function restoreTracksOnMap() { tracks.forEach(renderTrackOnMap); }
@@ -978,7 +1049,7 @@ function sortAndRenderTracks() {
     div.className = 'track' + (t.visible ? '' : ' hidden') + (t.id === activeTrackId ? ' active-track' : '');
     div.innerHTML = `<span class="swatch" style="background:${t.color}"></span><div class="track-main"><div class="track-name">${t.name}</div><div class="track-info">${t.data.totalDist.toFixed(1)} km</div></div><div class="track-actions"><button class="tg">👁️</button><button class="del">✕</button></div>`;
     div.querySelector('.tg').onclick = (e) => { e.stopPropagation(); t.visible = !t.visible; renderTrackOnMap(t); sortAndRenderTracks(); };
-    div.querySelector('.del').onclick = (e) => { e.stopPropagation(); if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getSource(t.id))map.removeSource(t.id);} tracks = tracks.filter(x => x.id !== t.id); if(activeTrackId === t.id) activeTrackId = tracks[0]?.id || null; if(activeTrackId) setActiveTrack(activeTrackId); sortAndRenderTracks(); fitAll(); };
+    div.querySelector('.del').onclick = (e) => { e.stopPropagation(); if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getLayer(t.id+'-hit'))map.removeLayer(t.id+'-hit');if(map.getSource(t.id))map.removeSource(t.id);} tracks = tracks.filter(x => x.id !== t.id); if(activeTrackId === t.id) activeTrackId = tracks[0]?.id || null; if(activeTrackId) setActiveTrack(activeTrackId); sortAndRenderTracks(); fitAll(); };
     div.onclick = (e) => { if(e.target.tagName !== 'BUTTON') setActiveTrack(t.id); };
     container.appendChild(div);
   });
@@ -992,7 +1063,7 @@ function fitAll() {
 }
 document.getElementById('fitBtn').onclick = fitAll;
 document.getElementById('clearBtn').onclick = () => {
-  tracks.forEach(t => { if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getSource(t.id))map.removeSource(t.id);} });
+  tracks.forEach(t => { if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getLayer(t.id+'-hit'))map.removeLayer(t.id+'-hit');if(map.getSource(t.id))map.removeSource(t.id);} });
   tracks = []; activeTrackId = null; sortAndRenderTracks(); drawElevationProfile();
 };
 
