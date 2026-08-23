@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.7</title>
+<title>GPX Compare v3.9</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -123,6 +123,18 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 #layout { flex:1; position:relative; width:100%; height:100%; min-height:0; display:flex; overflow:hidden }
 #main-view { flex:1; display:flex; flex-direction:column; position:relative; height:100%; width:100%; min-width:0 }
 #map-container { flex:1; position:relative; width:100%; min-height:200px }
+
+/* Mini-carte 2D (option) */
+#minimap-wrap { position:absolute; bottom:12px; width:150px; height:110px; background:rgba(30,31,35,0.85); border:1px solid rgba(255,255,255,0.25); border-radius:8px; z-index:900; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.4); }
+#minimap-wrap.hidden { display:none }
+#minimap-wrap.pos-left { left:12px }
+#minimap-wrap.pos-right { right:12px }
+#minimapCanvas { width:100%; height:100%; display:block }
+@media(max-width:700px){ #minimap-wrap { width:110px; height:85px; bottom:8px } }
+
+/* Stats dénivelé/pente en direct (option, cachées par défaut) */
+.live-stat { display:none }
+body.live-stats-on .live-stat { display:inline }
 #map { position:absolute; inset:0; width:100%; height:100% }
 
 /* Profil / Controls */
@@ -247,7 +259,7 @@ body.cinema-mode #cinema-overlay { display: flex; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare</h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.9</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -269,6 +281,12 @@ body.cinema-mode #cinema-overlay { display: flex; }
     <button id="btn3D">📐 3D</button>
     <button id="fitBtn">🎯 Recentrer</button>
     <button id="btnFullscreen">⛶ Plein écran</button>
+    <button id="btnLiveStats">📈 Pente/D+ en direct</button>
+    <select id="minimapPosSelect">
+      <option value="off" selected>🗺️ Mini-carte : désactivée</option>
+      <option value="left">🗺️ Mini-carte : bas-gauche</option>
+      <option value="right">🗺️ Mini-carte : bas-droite</option>
+    </select>
     <select id="themeSelect">
       <option value="system" selected>💻 Système</option>
       <option value="dark">🌙 Sombre</option>
@@ -295,9 +313,10 @@ body.cinema-mode #cinema-overlay { display: flex; }
   <div id="main-view">
     <div id="map-container">
       <div id="map"></div>
+      <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
-        <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span></div>
+        <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span> <span class="live-stat">| D+ <span id="c-dplus">0 m</span> | <span id="c-pente">--%</span></span></div>
         <button id="btnCinemaExit">✕ Quitter</button>
       </div>
     </div>
@@ -328,7 +347,8 @@ body.cinema-mode #cinema-overlay { display: flex; }
         <div id="tracker-stats-bar">
           <span>Dist: <b id="stDist">0.0 km</b></span>
           <span>Alt: <b id="stAlt">-- m</b></span>
-          <span>D+: <b id="stDplus">0 m</b></span>
+          <span class="live-stat">D+: <b id="stDplus">0 m</b></span>
+          <span class="live-stat">Pente: <b id="stPente">--%</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
         </div>
       </div>
@@ -401,6 +421,7 @@ document.getElementById('saveKeyBtn').addEventListener('click', () => {
 const ELE_THRESHOLD = 1.5;
 let is3DMode = false, map = null;
 let currentCameraBearing = 0;
+let currentSlope = 0;
 let currentCameraZoom = 14;
 const SMOOTHING_FACTOR = 0.06; // Ajustement de l'amorti anti-vibration
 
@@ -509,6 +530,79 @@ document.getElementById('btn3D').addEventListener('click', () => {
   }
 });
 
+// Option : Pente / D+ en direct
+let showLiveStats = false;
+const btnLiveStats = document.getElementById('btnLiveStats');
+btnLiveStats.addEventListener('click', () => {
+  showLiveStats = !showLiveStats;
+  btnLiveStats.classList.toggle('active', showLiveStats);
+  document.body.classList.toggle('live-stats-on', showLiveStats);
+});
+
+// Option : Mini-carte 2D (bas-gauche / bas-droite)
+const minimapWrap = document.getElementById('minimap-wrap');
+const minimapCanvas = document.getElementById('minimapCanvas');
+const mctx = minimapCanvas.getContext('2d');
+let minimapPos = 'off', minimapBounds = null;
+
+document.getElementById('minimapPosSelect').addEventListener('change', (e) => {
+  minimapPos = e.target.value;
+  minimapWrap.classList.toggle('hidden', minimapPos === 'off');
+  minimapWrap.classList.toggle('pos-left', minimapPos === 'left');
+  minimapWrap.classList.toggle('pos-right', minimapPos === 'right');
+  if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); }
+});
+
+function resizeMinimap() {
+  const rect = minimapWrap.getBoundingClientRect();
+  if (!rect.width) return;
+  minimapCanvas.width = rect.width * window.devicePixelRatio;
+  minimapCanvas.height = rect.height * window.devicePixelRatio;
+}
+
+function drawMinimapRoute() {
+  if (minimapPos === 'off') return;
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!tr || !tr.data.points.length) { mctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height); minimapBounds = null; return; }
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  tr.data.points.forEach(p => { if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon; if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat; });
+  minimapBounds = { minLon, maxLon, minLat, maxLat };
+  redrawMinimap();
+}
+
+function projectMinimap(lon, lat) {
+  const w = minimapCanvas.width, h = minimapCanvas.height, pad = 10 * window.devicePixelRatio;
+  const { minLon, maxLon, minLat, maxLat } = minimapBounds;
+  const lonSpan = (maxLon - minLon) || 0.001, latSpan = (maxLat - minLat) || 0.001;
+  // Conserve le ratio pour ne pas déformer le tracé
+  const scale = Math.min((w - pad * 2) / lonSpan, (h - pad * 2) / latSpan);
+  const drawW = lonSpan * scale, drawH = latSpan * scale;
+  const offX = pad + ((w - pad * 2) - drawW) / 2, offY = pad + ((h - pad * 2) - drawH) / 2;
+  return [offX + (lon - minLon) * scale, offY + (maxLat - lat) * scale]; // Y inversé (nord en haut)
+}
+
+function redrawMinimap() {
+  if (minimapPos === 'off' || !minimapBounds) return;
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!tr || !tr.data.points.length) return;
+  const pts = tr.data.points;
+  mctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+  mctx.beginPath();
+  pts.forEach((p, i) => { const [x, y] = projectMinimap(p.lon, p.lat); i === 0 ? mctx.moveTo(x, y) : mctx.lineTo(x, y); });
+  mctx.strokeStyle = tr.color; mctx.lineWidth = 2 * window.devicePixelRatio; mctx.stroke();
+
+  let p1, p2, f = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) { p1 = pts[i]; p2 = pts[i+1]; f = (currentRatio - p1.fraction) / (p2.fraction - p1.fraction || 1); break; }
+  }
+  if (!p1) { p1 = pts[pts.length-1]; p2 = p1; }
+  const lon = p1.lon + (p2.lon - p1.lon) * f, lat = p1.lat + (p2.lat - p1.lat) * f;
+  const [mx, my] = projectMinimap(lon, lat);
+  mctx.beginPath(); mctx.arc(mx, my, 4 * window.devicePixelRatio, 0, 2 * Math.PI);
+  mctx.fillStyle = '#00aaff'; mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.5 * window.devicePixelRatio; mctx.fill(); mctx.stroke();
+}
+window.addEventListener('resize', () => { if (minimapPos !== 'off') { resizeMinimap(); redrawMinimap(); } });
+
 // Cinéma & Export Vidéo
 const btnCinema = document.getElementById('btnCinema');
 const btnCinemaExit = document.getElementById('btnCinemaExit');
@@ -517,7 +611,7 @@ let isCinemaMode = false;
 function toggleCinemaMode(force = null) {
   isCinemaMode = force !== null ? force : !isCinemaMode;
   document.body.classList.toggle('cinema-mode', isCinemaMode);
-  setTimeout(() => { if (map) map.resize(); resizeCanvas(); }, 300);
+  setTimeout(() => { if (map) map.resize(); resizeCanvas(); if (minimapPos !== 'off') { resizeMinimap(); redrawMinimap(); } }, 300);
 }
 btnCinema.addEventListener('click', () => toggleCinemaMode());
 btnCinemaExit.addEventListener('click', () => toggleCinemaMode(false));
@@ -544,9 +638,15 @@ document.getElementById('startExportBtn').addEventListener('click', () => {
 
 document.getElementById('btnStopRecordGlobal').addEventListener('click', stopRecording);
 
-function startRecording() {
+async function startRecording() {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr || !map) return;
+
+  // Précharge les tuiles 3D/satellite le long du parcours AVANT de démarrer
+  // l'enregistrement, pour éviter les gels de plusieurs secondes pendant la
+  // capture (visibles dans la vidéo exportée quand la caméra entre dans une
+  // zone jamais chargée).
+  if (is3DMode) { setStatus('🔄 Préchargement des tuiles avant enregistrement...'); await warmupTiles(activeTr); }
 
   const quality = document.querySelector('input[name="exportQuality"]:checked').value;
   let fps = quality === 'high' ? 60 : 30;
@@ -683,9 +783,10 @@ function setActiveTrack(id) {
   pauseTrack(); currentRatio = 0; trackSlider.disabled = false;
   currentCameraBearing = map ? map.getBearing() : 0;
   currentCameraZoom = map ? map.getZoom() : 14;
+  currentSlope = 0;
   document.getElementById('active-track-name').textContent = tr.name;
   document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m`;
-  sortAndRenderTracks(); drawElevationProfile(); setTrackPositionByRatio(0);
+  sortAndRenderTracks(); drawElevationProfile(); drawMinimapRoute(); setTrackPositionByRatio(0);
 }
 
 function drawElevationProfile() {
@@ -718,17 +819,18 @@ trackSlider.addEventListener('input', e => setTrackPositionByRatio(parseFloat(e.
 function setTrackPositionByRatio(ratio) {
   const tr = tracks.find(t => t.id === activeTrackId); if (!tr || !tr.data.points.length) return;
   currentRatio = Math.max(0, Math.min(1, ratio)); const pts = tr.data.points;
-  let p1, p2, f = 0;
+  let p1, p2, f = 0, idx = 0;
   for (let i = 0; i < pts.length - 1; i++) {
     if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) {
-      p1 = pts[i]; p2 = pts[i+1]; f = (currentRatio - p1.fraction) / (p2.fraction - p1.fraction || 1); break;
+      p1 = pts[i]; p2 = pts[i+1]; f = (currentRatio - p1.fraction) / (p2.fraction - p1.fraction || 1); idx = i; break;
     }
   }
-  if (!p1) { p1 = pts[pts.length-1]; p2 = p1; }
+  if (!p1) { p1 = pts[pts.length-1]; p2 = p1; idx = pts.length - 1; }
 
   const lon = p1.lon + (p2.lon - p1.lon) * f, lat = p1.lat + (p2.lat - p1.lat) * f;
   const ele = p1.ele !== null ? p1.ele + (p2.ele - p1.ele) * f : null;
   const dist = p1.dist + (p2.dist - p1.dist) * f;
+  const dplus = p1.cumDplus + (p2.cumDplus - p1.cumDplus) * f;
 
   if (map) {
     if (map.getSource('tracker-source')) map.getSource('tracker-source').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] } });
@@ -738,11 +840,20 @@ function setTrackPositionByRatio(ratio) {
       let targetBearing = map.getBearing();
       if (camMode === 'fixed') targetBearing = 0;
       else {
-        let rawB = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+        // Cap calculé sur une fenêtre "lookahead" (~20 m) plutôt qu'entre deux
+        // points GPS adjacents : deux points très proches donnent un cap très
+        // bruité (le moindre écart GPS fait varier l'angle de plusieurs dizaines
+        // de degrés d'une frame à l'autre), ce qui faisait vibrer/saccader la
+        // caméra, surtout en mode Seuil.
+        let rawB = getLookaheadBearing(pts, idx, p1.dist);
+        if (isNaN(rawB)) rawB = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
         if (!isNaN(rawB)) {
           if (camMode === 'threshold') {
+            // Ne réagit que si l'écart dépasse le seuil, et rejoint alors le
+            // cap cible progressivement (lerp) au lieu de sauter dessus d'un
+            // coup en une seule frame — c'était la source des à-coups.
             let diff = (2 * ((rawB - currentCameraBearing) % 360)) % 360 - ((rawB - currentCameraBearing) % 360);
-            if (Math.abs(diff) > 25) currentCameraBearing = (currentCameraBearing + (diff > 0 ? diff - 25 : diff + 25)) % 360;
+            if (Math.abs(diff) > 25) currentCameraBearing = lerpAngle(currentCameraBearing, rawB, SMOOTHING_FACTOR * 1.5);
             targetBearing = currentCameraBearing;
           } else {
             currentCameraBearing = lerpAngle(currentCameraBearing, rawB, SMOOTHING_FACTOR);
@@ -763,6 +874,20 @@ function setTrackPositionByRatio(ratio) {
   document.getElementById('stDist').textContent = dist.toFixed(1) + ' km'; document.getElementById('c-dist').textContent = dist.toFixed(1) + ' km';
   document.getElementById('stAlt').textContent = ele !== null ? Math.round(ele) + ' m' : '-- m'; document.getElementById('c-alt').textContent = ele !== null ? Math.round(ele) + ' m' : '-- m';
   document.getElementById('stProg').textContent = Math.round(currentRatio * 100) + '%';
+
+  if (showLiveStats) {
+    // Pente lissée (lerp) sur le segment courant : l'altitude GPS point à
+    // point est bruitée, un lissage évite un affichage qui saute sans arrêt.
+    const distDeltaM = (p2.dist - p1.dist) * 1000;
+    const rawSlope = (distDeltaM > 0.5 && p1.ele !== null && p2.ele !== null) ? ((p2.ele - p1.ele) / distDeltaM) * 100 : currentSlope;
+    currentSlope = lerp(currentSlope, isFinite(rawSlope) ? rawSlope : 0, SMOOTHING_FACTOR * 3);
+    const dplusTxt = Math.round(dplus) + ' m';
+    const penteTxt = (currentSlope >= 0 ? '+' : '') + currentSlope.toFixed(1) + '%';
+    document.getElementById('stDplus').textContent = dplusTxt; document.getElementById('c-dplus').textContent = dplusTxt;
+    document.getElementById('stPente').textContent = penteTxt; document.getElementById('c-pente').textContent = penteTxt;
+  }
+
+  redrawMinimap();
   drawElevationProfile();
 }
 
@@ -776,8 +901,34 @@ function playStep(ts) {
   playAnimationId = requestAnimationFrame(playStep);
 }
 
-function playTrack() {
+let warmedTrackId = null, warmedStyleKey = null;
+async function warmupTiles(tr) {
+  if (!map || !tr || !tr.data.points.length) return;
+  const styleKey = document.getElementById('mapStyleSelect').value;
+  if (warmedTrackId === tr.id && warmedStyleKey === styleKey) return; // déjà préchargé pour ce couple trace/fond
+  const pts = tr.data.points, steps = 12;
+  const saved = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+  const flightZoom = Math.max(currentCameraZoom, 14);
+  try {
+    for (let s = 0; s <= steps; s++) {
+      const p = pts[Math.floor((pts.length - 1) * (s / steps))];
+      map.jumpTo({ center: [p.lon, p.lat], zoom: flightZoom, pitch: 60 });
+      await new Promise(r => setTimeout(r, 100));
+    }
+    await Promise.race([
+      new Promise(r => { if (map.loaded()) r(); else map.once('idle', r); }),
+      new Promise(r => setTimeout(r, 4000)) // garde-fou si 'idle' ne se déclenche pas
+    ]);
+  } finally {
+    map.jumpTo({ center: saved.center, zoom: saved.zoom, bearing: saved.bearing, pitch: saved.pitch });
+    warmedTrackId = tr.id; warmedStyleKey = styleKey;
+  }
+}
+
+async function playTrack() {
   if (currentRatio >= 1) currentRatio = 0;
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (tr && is3DMode) { setStatus('🔄 Préchargement des tuiles 3D...'); await warmupTiles(tr); setStatus(''); }
   // Repart de la position caméra actuelle (zoom/orientation) au lieu de
   // l'ancienne valeur figée lors de la sélection de la trace : évite le
   // saut de zoom au lancement si tu as zoomé/dézoomé entre-temps.
@@ -832,6 +983,15 @@ document.getElementById('clearBtn').onclick = () => {
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
   return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2));
+}
+function getLookaheadBearing(pts, idx, curDistKm) {
+  const LOOKAHEAD_KM = 0.02; // 20 m : assez pour lisser le bruit GPS, assez peu pour rester réactif
+  const targetDist = curDistKm + LOOKAHEAD_KM;
+  let j = idx;
+  while (j < pts.length - 1 && pts[j].dist < targetDist) j++;
+  const a = pts[idx], b = pts[j];
+  if (!a || !b || a === b) return NaN;
+  return calculateBearing(a.lat, a.lon, b.lat, b.lon);
 }
 function calculateBearing(lat1, lon1, lat2, lon2) {
   const y = Math.sin((lon2-lon1)*Math.PI/180)*Math.cos(lat2*Math.PI/180);
