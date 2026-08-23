@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.11</title>
+<title>GPX Compare v3.14</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -138,13 +138,20 @@ body.live-stats-on .live-stat { display:inline }
 #map { position:absolute; inset:0; width:100%; height:100% }
 
 /* Profil / Controls */
-#profile-container { background:var(--bg-panel); color:var(--text-main); border-top:1px solid var(--border-color); padding:8px 12px; display:flex; flex-direction:column; gap:6px; flex:none; z-index:950 }
+#profile-container { background:var(--bg-panel); color:var(--text-main); border-top:1px solid var(--border-color); padding:8px 12px; display:flex; flex-direction:column; gap:6px; flex:none; z-index:950; max-height:60vh; overflow-y:auto }
 #profile-header { display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600 }
 #active-track-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60% }
 #active-track-stats { font-size:11px; color:var(--text-sub) }
 #canvas-wrap { position:relative; width:100%; height:100px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:6px; cursor:crosshair; touch-action:none }
 #elevationCanvas { width:100%; height:100%; display:block }
 #tracker-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; background:var(--bg-card); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color) }
+#trim-controls { display:flex; align-items:center; gap:6px; width:100%; font-size:11px; color:var(--text-sub) }
+#trim-controls.hidden { display:none }
+#trim-controls input[type="range"] { flex:1; max-width:110px }
+#btnTrimToggle { margin-left:auto; font-size:11px; padding:3px 8px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main); cursor:pointer }
+#btnTrimToggle.active { background:var(--accent); color:#fff; border-color:var(--accent) }
+.trim-label { white-space:nowrap; flex-shrink:0 }
+#trimInfo { margin-left:auto; font-weight:600 }
 .control-group { display:flex; align-items:center; gap:4px }
 .control-group button { padding:5px 8px; font-size:12px; background:var(--bg-panel); color:var(--text-main) }
 .control-group button.active { background:var(--accent); color:#fff }
@@ -191,6 +198,13 @@ body.cinema-mode #cinema-overlay { display: flex; }
 #cinema-overlay button { background: var(--accent); color: white; border: none; border-radius: 30px; padding: 8px 16px; font-size: 14px; font-weight: bold; cursor: pointer; }
 #cinema-overlay button#btnCinemaExit { background: #e53935; }
 #cinema-stats { color: white; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 130px; text-align: center; }
+
+/* Badge D+/Pente en mode Cinéma : coin opposé à la mini-carte pour ne pas se
+   chevaucher avec elle (les deux étaient plaqués en bas-gauche par défaut). */
+#cinema-live-stats { display:none; position:absolute; bottom:12px; background:rgba(30,31,35,0.85); color:#fff; font-size:13px; font-weight:600; padding:8px 14px; border-radius:20px; z-index:1000; border:1px solid rgba(255,255,255,0.2); font-variant-numeric:tabular-nums; }
+body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
+#cinema-live-stats.corner-left { left:12px }
+#cinema-live-stats.corner-right { right:12px }
 
 /* Indicateur enregistrement */
 #record-indicator {
@@ -259,7 +273,7 @@ body.cinema-mode #cinema-overlay { display: flex; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.11</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.14</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -314,9 +328,10 @@ body.cinema-mode #cinema-overlay { display: flex; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
+      <div id="cinema-live-stats" class="hidden"><span id="c-dplus2">0 m</span> · <span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
-        <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span> <span class="live-stat">| D+ <span id="c-dplus">0 m</span> | <span id="c-pente">--%</span></span></div>
+        <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span></div>
         <button id="btnCinemaExit">✕ Quitter</button>
       </div>
     </div>
@@ -350,6 +365,14 @@ body.cinema-mode #cinema-overlay { display: flex; }
           <span class="live-stat">D+: <b id="stDplus">0 m</b></span>
           <span class="live-stat">Pente: <b id="stPente">--%</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
+          <button id="btnTrimToggle" title="Rogner le début/la fin de la trace">✂️ Rogner</button>
+        </div>
+        <div id="trim-controls" class="hidden">
+          <span class="trim-label">Début</span>
+          <input type="range" id="trimStartSlider" min="0" max="40" value="0" step="1">
+          <span class="trim-label">Fin</span>
+          <input type="range" id="trimEndSlider" min="0" max="40" value="0" step="1">
+          <span id="trimInfo" class="trim-label"></span>
         </div>
       </div>
     </div>
@@ -422,6 +445,7 @@ const ELE_THRESHOLD = 1.5;
 let is3DMode = false, map = null;
 let currentCameraBearing = 0;
 let currentSlope = 0;
+let currentCameraPitch = 0;
 let currentCameraZoom = 14;
 const SMOOTHING_FACTOR = 0.06; // Ajustement de l'amorti anti-vibration
 
@@ -525,6 +549,7 @@ document.getElementById('btn3D').addEventListener('click', () => {
   if (!is3DMode && !MAPTILER_KEY) { pendingAction = '3d'; keyModal.classList.remove('hidden'); return; }
   is3DMode = !is3DMode;
   document.getElementById('btn3D').classList.toggle('active', is3DMode);
+  currentCameraPitch = is3DMode ? 60 : 0;
   if (map) {
     if (is3DMode) { apply3DTerrain(); map.easeTo({ pitch: 60, duration: 800 }); }
     else { map.setTerrain(null); map.easeTo({ pitch: 0, duration: 800 }); }
@@ -549,11 +574,13 @@ if (sideHeaderEl) sideHeaderEl.addEventListener('click', (e) => {
 });
 
 const btnLiveStats = document.getElementById('btnLiveStats');
+const cinemaLiveStats = document.getElementById('cinema-live-stats');
 
 btnLiveStats.addEventListener('click', () => {
   showLiveStats = !showLiveStats;
   btnLiveStats.classList.toggle('active', showLiveStats);
   document.body.classList.toggle('live-stats-on', showLiveStats);
+  updateCinemaLiveStatsVisibility();
 });
 
 // Option : Mini-carte 2D (bas-gauche / bas-droite)
@@ -562,12 +589,22 @@ const minimapCanvas = document.getElementById('minimapCanvas');
 const mctx = minimapCanvas.getContext('2d');
 let minimapPos = 'off', minimapBounds = null;
 
+// Le badge D+/Pente du mode Cinéma se place dans le coin opposé à la
+// mini-carte pour ne jamais se chevaucher avec elle.
+function updateCinemaLiveStatsVisibility() {
+  cinemaLiveStats.classList.toggle('hidden', !showLiveStats);
+  const oppositeCorner = minimapPos === 'left' ? 'right' : 'left'; // 'off' -> bas-gauche par défaut
+  cinemaLiveStats.classList.toggle('corner-left', oppositeCorner === 'left');
+  cinemaLiveStats.classList.toggle('corner-right', oppositeCorner === 'right');
+}
+
 document.getElementById('minimapPosSelect').addEventListener('change', (e) => {
   minimapPos = e.target.value;
   minimapWrap.classList.toggle('hidden', minimapPos === 'off');
   minimapWrap.classList.toggle('pos-left', minimapPos === 'left');
   minimapWrap.classList.toggle('pos-right', minimapPos === 'right');
   if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); }
+  updateCinemaLiveStatsVisibility();
 });
 
 function resizeMinimap() {
@@ -577,6 +614,12 @@ function resizeMinimap() {
   minimapCanvas.height = rect.height * window.devicePixelRatio;
 }
 
+// Le tracé statique (potentiellement des milliers de points GPS) est dessiné
+// une seule fois sur un canvas hors-écran, plutôt que d'être entièrement
+// redessiné à chaque frame d'animation — c'était devenu un vrai goulot
+// d'étranglement et une source de saccades une fois la mini-carte ajoutée.
+let minimapRouteCanvas = null, minimapRouteCtx = null;
+
 function drawMinimapRoute() {
   if (minimapPos === 'off') return;
   const tr = tracks.find(t => t.id === activeTrackId);
@@ -584,6 +627,14 @@ function drawMinimapRoute() {
   let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
   tr.data.points.forEach(p => { if (p.lon < minLon) minLon = p.lon; if (p.lon > maxLon) maxLon = p.lon; if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat; });
   minimapBounds = { minLon, maxLon, minLat, maxLat };
+
+  if (!minimapRouteCanvas) { minimapRouteCanvas = document.createElement('canvas'); minimapRouteCtx = minimapRouteCanvas.getContext('2d'); }
+  minimapRouteCanvas.width = minimapCanvas.width; minimapRouteCanvas.height = minimapCanvas.height;
+  minimapRouteCtx.clearRect(0, 0, minimapRouteCanvas.width, minimapRouteCanvas.height);
+  minimapRouteCtx.beginPath();
+  tr.data.points.forEach((p, i) => { const [x, y] = projectMinimap(p.lon, p.lat); i === 0 ? minimapRouteCtx.moveTo(x, y) : minimapRouteCtx.lineTo(x, y); });
+  minimapRouteCtx.strokeStyle = tr.color; minimapRouteCtx.lineWidth = 2 * window.devicePixelRatio; minimapRouteCtx.stroke();
+
   redrawMinimap();
 }
 
@@ -599,14 +650,12 @@ function projectMinimap(lon, lat) {
 }
 
 function redrawMinimap() {
-  if (minimapPos === 'off' || !minimapBounds) return;
+  if (minimapPos === 'off' || !minimapBounds || !minimapRouteCanvas) return;
   const tr = tracks.find(t => t.id === activeTrackId);
   if (!tr || !tr.data.points.length) return;
   const pts = tr.data.points;
   mctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
-  mctx.beginPath();
-  pts.forEach((p, i) => { const [x, y] = projectMinimap(p.lon, p.lat); i === 0 ? mctx.moveTo(x, y) : mctx.lineTo(x, y); });
-  mctx.strokeStyle = tr.color; mctx.lineWidth = 2 * window.devicePixelRatio; mctx.stroke();
+  mctx.drawImage(minimapRouteCanvas, 0, 0);
 
   let p1, p2, f = 0;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -618,7 +667,8 @@ function redrawMinimap() {
   mctx.beginPath(); mctx.arc(mx, my, 4 * window.devicePixelRatio, 0, 2 * Math.PI);
   mctx.fillStyle = '#00aaff'; mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.5 * window.devicePixelRatio; mctx.fill(); mctx.stroke();
 }
-window.addEventListener('resize', () => { if (minimapPos !== 'off') { resizeMinimap(); redrawMinimap(); } });
+window.addEventListener('resize', () => { if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); } });
+
 
 // Cinéma & Export Vidéo
 const btnCinema = document.getElementById('btnCinema');
@@ -628,7 +678,7 @@ let isCinemaMode = false;
 function toggleCinemaMode(force = null) {
   isCinemaMode = force !== null ? force : !isCinemaMode;
   document.body.classList.toggle('cinema-mode', isCinemaMode);
-  setTimeout(() => { if (map) map.resize(); resizeCanvas(); if (minimapPos !== 'off') { resizeMinimap(); redrawMinimap(); } }, 300);
+  setTimeout(() => { if (map) map.resize(); resizeCanvas(); if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); } }, 300);
 }
 btnCinema.addEventListener('click', () => toggleCinemaMode());
 btnCinemaExit.addEventListener('click', () => toggleCinemaMode(false));
@@ -674,9 +724,12 @@ function drawExportFrame() {
     exportCtx.save();
     exportCtx.font = `${15 * dpr}px -apple-system, sans-serif`;
     exportCtx.textBaseline = 'middle';
-    const padX = 12 * dpr, boxH = 30 * dpr;
+    const padX = 12 * dpr, boxH = 30 * dpr, margin = 12 * dpr;
     const boxW = exportCtx.measureText(text).width + padX * 2;
-    const bx = (exportCanvas.width - boxW) / 2, by = exportCanvas.height - boxH - 90 * dpr;
+    // Coin opposé à la mini-carte pour ne pas se chevaucher (comme à l'écran)
+    const oppositeCorner = minimapPos === 'left' ? 'right' : 'left';
+    const bx = oppositeCorner === 'left' ? margin : exportCanvas.width - boxW - margin;
+    const by = exportCanvas.height - boxH - margin;
     exportCtx.fillStyle = 'rgba(20,20,20,0.75)';
     roundRectPath(exportCtx, bx, by, boxW, boxH, 8 * dpr); exportCtx.fill();
     exportCtx.fillStyle = '#fff'; exportCtx.textAlign = 'left';
@@ -829,8 +882,15 @@ function calculateTrackData(points) {
     if (i > 0) cumDist += haversine(points[i-1].lat, points[i-1].lon, pt.lat, pt.lon);
     if (pt.ele !== null && !isNaN(pt.ele)) {
       hasEle = true; if (pt.ele < minEle) minEle = pt.ele; if (pt.ele > maxEle) maxEle = pt.ele;
-      if (lastEle !== null) { const diff = pt.ele - lastEle; if (diff >= ELE_THRESHOLD) cumDplus += diff; }
-      lastEle = pt.ele;
+      if (lastEle !== null) {
+        const diff = pt.ele - lastEle;
+        // On ne déplace la référence que si l'écart dépasse le seuil de bruit
+        // (montée OU descente) ; sinon on la laisse en place pour que les
+        // petits écarts successifs (montée progressive) finissent par
+        // s'additionner au lieu d'être effacés à chaque point.
+        if (diff >= ELE_THRESHOLD) { cumDplus += diff; lastEle = pt.ele; }
+        else if (diff <= -ELE_THRESHOLD) { lastEle = pt.ele; }
+      } else { lastEle = pt.ele; }
     }
     trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, fraction: (hasTime && totalT > 0) ? (pt.time - startT)/totalT : cumDist });
   });
@@ -839,13 +899,63 @@ function calculateTrackData(points) {
 }
 
 function addGPX(name, text) {
-  const data = calculateTrackData(parseGPX(text));
-  const t = { id: 't-' + Math.random(), name, color: colors[colorIndex++ % colors.length], visible: true, data };
+  const rawPoints = parseGPX(text);
+  const t = { id: 't-' + Math.random(), name, color: colors[colorIndex++ % colors.length], visible: true, rawPoints, trimStart: 0, trimEnd: 0, data: calculateTrackData(rawPoints) };
   tracks.push(t);
   renderTrackOnMap(t); sortAndRenderTracks();
   if (!activeTrackId) setActiveTrack(t.id); else drawElevationProfile();
   fitAll();
 }
+
+// Retire une portion (en %) du début et/ou de la fin de la trace brute — utile
+// quand l'enregistrement a démarré avant de bouger ou s'est arrêté en retard.
+// Recalcule les stats (distance, D+...) et met à jour tout ce qui dépend du
+// tracé (ligne sur la carte, mini-carte, profil, position du curseur).
+function applyTrim(t) {
+  const n = t.rawPoints.length;
+  const startIdx = Math.floor(n * (t.trimStart / 100));
+  const endIdx = Math.ceil(n * (1 - t.trimEnd / 100));
+  const sliced = t.rawPoints.slice(startIdx, Math.max(startIdx + 2, endIdx));
+  t.data = calculateTrackData(sliced);
+  if (map && map.getSource(t.id)) {
+    map.getSource(t.id).setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: t.data.points.map(p => [p.lon, p.lat]) } });
+  }
+  if (t.id === activeTrackId) {
+    document.getElementById('active-track-stats').textContent = `${t.data.totalDist.toFixed(1)} km · +${Math.round(t.data.totalDplus)}m`;
+    currentRatio = 0; drawMinimapRoute(); setTrackPositionByRatio(0);
+  } else {
+    sortAndRenderTracks();
+  }
+}
+
+function updateTrimInfo(t) {
+  const el = document.getElementById('trimInfo');
+  if ((t.trimStart || 0) === 0 && (t.trimEnd || 0) === 0) { el.textContent = ''; return; }
+  el.textContent = `${t.data.totalDist.toFixed(1)} km (rogné)`;
+}
+
+const trimStartSlider = document.getElementById('trimStartSlider');
+const trimEndSlider = document.getElementById('trimEndSlider');
+function onTrimChange(e) {
+  const tr = tracks.find(t => t.id === activeTrackId); if (!tr) return;
+  let s = parseInt(trimStartSlider.value, 10), en = parseInt(trimEndSlider.value, 10);
+  if (s + en > 90) { // garde au moins 10% de la trace
+    if (e.target === trimStartSlider) en = Math.max(0, 90 - s); else s = Math.max(0, 90 - en);
+    trimStartSlider.value = s; trimEndSlider.value = en;
+  }
+  tr.trimStart = s; tr.trimEnd = en;
+  applyTrim(tr);
+  updateTrimInfo(tr);
+}
+trimStartSlider.addEventListener('input', onTrimChange);
+trimEndSlider.addEventListener('input', onTrimChange);
+
+const btnTrimToggle = document.getElementById('btnTrimToggle');
+const trimControlsPanel = document.getElementById('trim-controls');
+btnTrimToggle.addEventListener('click', () => {
+  const nowOpen = trimControlsPanel.classList.toggle('hidden') === false;
+  btnTrimToggle.classList.toggle('active', nowOpen);
+});
 
 function renderTrackOnMap(t) {
   if (!map) return;
@@ -870,9 +980,13 @@ function setActiveTrack(id) {
   pauseTrack(); currentRatio = 0; trackSlider.disabled = false;
   currentCameraBearing = map ? map.getBearing() : 0;
   currentCameraZoom = map ? map.getZoom() : 14;
+  currentCameraPitch = map ? map.getPitch() : (is3DMode ? 60 : 0);
   currentSlope = 0;
   document.getElementById('active-track-name').textContent = tr.name;
   document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m`;
+  document.getElementById('trimStartSlider').value = tr.trimStart || 0;
+  document.getElementById('trimEndSlider').value = tr.trimEnd || 0;
+  updateTrimInfo(tr);
   sortAndRenderTracks(); drawElevationProfile(); drawMinimapRoute(); setTrackPositionByRatio(0);
 }
 
@@ -919,6 +1033,14 @@ function setTrackPositionByRatio(ratio) {
   const dist = p1.dist + (p2.dist - p1.dist) * f;
   const dplus = p1.cumDplus + (p2.cumDplus - p1.cumDplus) * f;
 
+  // Pente lissée (lerp) sur le segment courant : l'altitude GPS point à point
+  // est bruitée, un lissage évite une valeur (et un pitch caméra) qui saute
+  // sans arrêt. Calculée systématiquement (pas juste si affichée) car la
+  // caméra en a besoin pour s'ajuster en pente forte.
+  const distDeltaM = (p2.dist - p1.dist) * 1000;
+  const rawSlope = (distDeltaM > 0.5 && p1.ele !== null && p2.ele !== null) ? ((p2.ele - p1.ele) / distDeltaM) * 100 : currentSlope;
+  currentSlope = lerp(currentSlope, isFinite(rawSlope) ? rawSlope : 0, SMOOTHING_FACTOR * 3);
+
   if (map) {
     if (map.getSource('tracker-source')) map.getSource('tracker-source').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] } });
     
@@ -953,7 +1075,22 @@ function setTrackPositionByRatio(ratio) {
       let targetZoom = map.getZoom();
       currentCameraZoom = lerp(currentCameraZoom, targetZoom, SMOOTHING_FACTOR);
 
-      map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom, pitch: is3DMode ? 60 : 0, bearing: targetBearing });
+      // En pente marquée (montée ou descente), le relief qui se dresse devant
+      // la caméra pousse le point vers le haut du cadre, jusqu'à le faire
+      // sortir. Passé 15% de pente, on redresse progressivement la caméra
+      // (pitch réduit = vue plus plongeante) pour garder le point bien visible.
+      const basePitch = is3DMode ? 60 : 0;
+      let targetPitch = basePitch;
+      if (is3DMode) {
+        const absSlope = Math.abs(currentSlope);
+        if (absSlope > 15) {
+          const t = Math.min(1, (absSlope - 15) / 25); // réduction max atteinte vers 40% de pente
+          targetPitch = basePitch - t * 30; // jusqu'à 60° -> 30°
+        }
+      }
+      currentCameraPitch = lerp(currentCameraPitch, targetPitch, SMOOTHING_FACTOR * 2);
+
+      map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom, pitch: currentCameraPitch, bearing: targetBearing });
     }
   }
 
@@ -963,15 +1100,10 @@ function setTrackPositionByRatio(ratio) {
   document.getElementById('stProg').textContent = Math.round(currentRatio * 100) + '%';
 
   if (showLiveStats) {
-    // Pente lissée (lerp) sur le segment courant : l'altitude GPS point à
-    // point est bruitée, un lissage évite un affichage qui saute sans arrêt.
-    const distDeltaM = (p2.dist - p1.dist) * 1000;
-    const rawSlope = (distDeltaM > 0.5 && p1.ele !== null && p2.ele !== null) ? ((p2.ele - p1.ele) / distDeltaM) * 100 : currentSlope;
-    currentSlope = lerp(currentSlope, isFinite(rawSlope) ? rawSlope : 0, SMOOTHING_FACTOR * 3);
     const dplusTxt = Math.round(dplus) + ' m';
     const penteTxt = (currentSlope >= 0 ? '+' : '') + currentSlope.toFixed(1) + '%';
-    document.getElementById('stDplus').textContent = dplusTxt; document.getElementById('c-dplus').textContent = dplusTxt;
-    document.getElementById('stPente').textContent = penteTxt; document.getElementById('c-pente').textContent = penteTxt;
+    document.getElementById('stDplus').textContent = dplusTxt; document.getElementById('c-dplus2').textContent = dplusTxt;
+    document.getElementById('stPente').textContent = penteTxt; document.getElementById('c-pente2').textContent = penteTxt;
   }
 
   redrawMinimap();
@@ -993,18 +1125,24 @@ async function warmupTiles(tr) {
   if (!map || !tr || !tr.data.points.length) return;
   const styleKey = document.getElementById('mapStyleSelect').value;
   if (warmedTrackId === tr.id && warmedStyleKey === styleKey) return; // déjà préchargé pour ce couple trace/fond
-  const pts = tr.data.points, steps = 12;
+  const pts = tr.data.points;
+  // Un point de survol tous les ~150 m plutôt qu'un nombre fixe de points :
+  // sur un long parcours, 12 points fixes laissaient de grandes zones jamais
+  // survolées à l'avance, donc des tuiles de relief (DEM) pas encore chargées
+  // pendant le vol réel — c'est ce qui fait "sauter" le point bleu (la caméra
+  // se cale sur une hypothèse d'altitude fausse tant que la tuile n'est pas là).
+  const steps = Math.max(10, Math.min(60, Math.round(tr.data.totalDist / 0.15)));
   const saved = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
   const flightZoom = Math.max(currentCameraZoom, 14);
   try {
     for (let s = 0; s <= steps; s++) {
       const p = pts[Math.floor((pts.length - 1) * (s / steps))];
       map.jumpTo({ center: [p.lon, p.lat], zoom: flightZoom, pitch: 60 });
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 70));
     }
     await Promise.race([
       new Promise(r => { if (map.loaded()) r(); else map.once('idle', r); }),
-      new Promise(r => setTimeout(r, 4000)) // garde-fou si 'idle' ne se déclenche pas
+      new Promise(r => setTimeout(r, 5000)) // garde-fou si 'idle' ne se déclenche pas
     ]);
   } finally {
     map.jumpTo({ center: saved.center, zoom: saved.zoom, bearing: saved.bearing, pitch: saved.pitch });
