@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.9</title>
+<title>GPX Compare v3.10</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -259,7 +259,7 @@ body.cinema-mode #cinema-overlay { display: flex; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.9</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.10</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -532,7 +532,23 @@ document.getElementById('btn3D').addEventListener('click', () => {
 
 // Option : Pente / D+ en direct
 let showLiveStats = false;
+// Panneau "Sorties" sur mobile : coincé en bas par défaut (poignée visible),
+// s'ouvre en cliquant le bouton dédié ou en tapant/glissant sur sa poignée.
+const sideEl = document.getElementById('side');
+const toggleSideBtn = document.getElementById('toggleSide');
+if (toggleSideBtn) toggleSideBtn.addEventListener('click', () => {
+  sideEl.classList.toggle('open');
+  toggleSideBtn.classList.toggle('active', sideEl.classList.contains('open'));
+});
+const sideHeaderEl = document.getElementById('sideHeader');
+if (sideHeaderEl) sideHeaderEl.addEventListener('click', (e) => {
+  if (window.innerWidth > 700) return; // uniquement utile en layout mobile
+  sideEl.classList.toggle('open');
+  if (toggleSideBtn) toggleSideBtn.classList.toggle('active', sideEl.classList.contains('open'));
+});
+
 const btnLiveStats = document.getElementById('btnLiveStats');
+
 btnLiveStats.addEventListener('click', () => {
   showLiveStats = !showLiveStats;
   btnLiveStats.classList.toggle('active', showLiveStats);
