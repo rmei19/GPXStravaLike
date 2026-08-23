@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.15</title>
+<title>GPX Compare v3.16</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -148,7 +148,7 @@ body.live-stats-on .live-stat { display:inline }
 #trim-controls { display:flex; align-items:center; gap:6px; width:100%; font-size:11px; color:var(--text-sub) }
 #trim-controls.hidden { display:none }
 #trim-controls input[type="range"] { flex:1; max-width:110px }
-#btnTrimToggle { margin-left:auto; font-size:11px; padding:3px 8px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main); cursor:pointer }
+#btnTrimToggle { font-size:11px; padding:3px 8px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main); cursor:pointer }
 #btnTrimToggle.active { background:var(--accent); color:#fff; border-color:var(--accent) }
 .trim-label { white-space:nowrap; flex-shrink:0 }
 #trimInfo { margin-left:auto; font-weight:600 }
@@ -273,7 +273,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.15</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.16</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -343,7 +343,17 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
       </div>
       <div id="canvas-wrap"><canvas id="elevationCanvas"></canvas></div>
       <div id="tracker-controls">
-        <div class="control-group"><button id="btnPlay">▶</button></div>
+        <div class="control-group">
+          <button id="btnPlay">▶</button>
+          <button id="btnTrimToggle" title="Rogner le début/la fin de la trace">✂️ Rogner</button>
+        </div>
+        <div id="trim-controls" class="hidden">
+          <span class="trim-label">Début</span>
+          <input type="range" id="trimStartSlider" min="0" max="40" value="0" step="1">
+          <span class="trim-label">Fin</span>
+          <input type="range" id="trimEndSlider" min="0" max="40" value="0" step="1">
+          <span id="trimInfo" class="trim-label"></span>
+        </div>
         <input type="range" id="trackSlider" min="0" max="1" value="0" step="0.001" disabled>
         <div class="control-group">
           <select id="animDurationSelect">
@@ -365,14 +375,6 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
           <span class="live-stat">D+: <b id="stDplus">0 m</b></span>
           <span class="live-stat">Pente: <b id="stPente">--%</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
-          <button id="btnTrimToggle" title="Rogner le début/la fin de la trace">✂️ Rogner</button>
-        </div>
-        <div id="trim-controls" class="hidden">
-          <span class="trim-label">Début</span>
-          <input type="range" id="trimStartSlider" min="0" max="40" value="0" step="1">
-          <span class="trim-label">Fin</span>
-          <input type="range" id="trimEndSlider" min="0" max="40" value="0" step="1">
-          <span id="trimInfo" class="trim-label"></span>
         </div>
       </div>
     </div>
