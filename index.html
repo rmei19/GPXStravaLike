@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.14</title>
+<title>GPX Compare v3.15</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -273,7 +273,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.14</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.15</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -846,14 +846,20 @@ document.getElementById('drop').addEventListener('drop', e => { e.preventDefault
 function loadFiles(files) { files.filter(f => f.name.toLowerCase().endsWith('.gpx') || !f.name.includes('.')).forEach(readFile); }
 function readFile(file) {
   const r = new FileReader();
-  r.onload = () => { addGPX(deriveTrackName(file.name, r.result), r.result); setStatus(file.name + ' chargé.'); };
+  r.onload = () => {
+    const t = addGPX(deriveTrackName(file.name, r.result), r.result);
+    setStatus(file.name + ' chargé.');
+    autoRenameTrack(t, r.result); // renomme en arrière-plan une fois date/lieu/sport résolus (réseau)
+  };
   r.readAsText(file, 'UTF-8');
 }
 
 // Les GPX exportés (Strava, etc.) embarquent souvent un vrai titre d'activité
 // dans <trk><name> ou <metadata><name>, bien plus lisible que le nom de
 // fichier auto-généré (ex: "export_19862333608.gpx"). On le préfère quand il
-// existe ; sinon on nettoie un minimum le nom de fichier en repli.
+// existe ; sinon on nettoie un minimum le nom de fichier en repli. Ce nom
+// sert de repli immédiat, avant que autoRenameTrack() ne le remplace par le
+// format date-lieu-sport une fois le géocodage terminé.
 function deriveTrackName(filename, gpxText) {
   try {
     const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
@@ -861,6 +867,80 @@ function deriveTrackName(filename, gpxText) {
     if (trkName && trkName.textContent.trim()) return trkName.textContent.trim();
   } catch (e) { /* pas grave, on retombe sur le nom de fichier */ }
   return filename.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim() || filename;
+}
+
+const SPORT_LABELS = {
+  running: 'Course', run: 'Course', trail_running: 'Trail', trail: 'Trail',
+  cycling: 'Vélo', biking: 'Vélo', road_biking: 'Vélo', bike: 'Vélo', virtual_ride: 'Vélo',
+  mountain_biking: 'VTT', mtb: 'VTT', gravel: 'Gravel',
+  hiking: 'Rando', hike: 'Rando', walking: 'Marche', walk: 'Marche',
+  swimming: 'Natation', swim: 'Natation', ski: 'Ski', skiing: 'Ski', nordic_ski: 'Ski de fond',
+  rowing: 'Aviron', kayaking: 'Kayak', canoeing: 'Canoë'
+};
+
+function extractSportLabel(gpxText) {
+  try {
+    const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
+    const typeEl = xml.querySelector('trk > type');
+    if (typeEl && typeEl.textContent.trim()) {
+      const raw = typeEl.textContent.trim();
+      const key = raw.toLowerCase().replace(/[\s-]+/g, '_');
+      return SPORT_LABELS[key] || raw;
+    }
+  } catch (e) { /* pas grave */ }
+  return null;
+}
+
+function extractFirstDate(gpxText) {
+  try {
+    const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
+    const timeEl = xml.querySelector('metadata > time, trkpt time, time');
+    if (timeEl && timeEl.textContent.trim()) {
+      const d = new Date(timeEl.textContent.trim());
+      if (!isNaN(d)) return d.toISOString().slice(0, 10); // YYYY-MM-DD
+    }
+  } catch (e) { /* pas grave */ }
+  return null;
+}
+
+// Géocodage inverse : MapTiler si une clé est configurée (plus fiable, déjà
+// utilisée pour les fonds de carte), sinon repli gratuit sur Nominatim/OSM.
+async function reverseGeocodeLieu(lat, lon) {
+  try {
+    if (MAPTILER_KEY) {
+      const res = await fetch(`https://api.maptiler.com/geocoding/${lon},${lat}.json?key=${MAPTILER_KEY}&language=fr&types=municipality,village,town,city`);
+      if (res.ok) {
+        const data = await res.json();
+        const f = data.features && data.features[0];
+        if (f && f.text) return f.text;
+      }
+    }
+  } catch (e) { /* on retombe sur Nominatim */ }
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=14&accept-language=fr`);
+    if (res.ok) {
+      const data = await res.json();
+      const a = data.address || {};
+      return a.village || a.town || a.city || a.municipality || a.suburb || a.county || null;
+    }
+  } catch (e) { /* pas de réseau / hors-ligne : on garde le nom de repli */ }
+  return null;
+}
+
+// Renomme au format "date - lieu - sport" une fois les infos disponibles.
+// N'écrase le nom de repli que si on obtient au moins une info exploitable
+// (pas de réseau ou géocodage en échec -> le nom d'origine est conservé).
+async function autoRenameTrack(t, gpxText) {
+  const firstPt = t.rawPoints[0];
+  if (!firstPt) return;
+  const date = extractFirstDate(gpxText);
+  const sport = extractSportLabel(gpxText) || 'Sortie';
+  const lieu = await reverseGeocodeLieu(firstPt.lat, firstPt.lon);
+  const parts = [date, lieu, sport].filter(Boolean);
+  if (parts.length < 2) return; // ni date ni lieu trouvés : pas assez d'infos, on garde le nom existant
+  t.name = parts.join(' - ');
+  if (t.id === activeTrackId) document.getElementById('active-track-name').textContent = t.name;
+  sortAndRenderTracks();
 }
 
 function parseGPX(text) {
@@ -905,6 +985,7 @@ function addGPX(name, text) {
   renderTrackOnMap(t); sortAndRenderTracks();
   if (!activeTrackId) setActiveTrack(t.id); else drawElevationProfile();
   fitAll();
+  return t;
 }
 
 // Retire une portion (en %) du début et/ou de la fin de la trace brute — utile
@@ -1188,6 +1269,17 @@ function sortAndRenderTracks() {
     div.innerHTML = `<span class="swatch" style="background:${t.color}"></span><div class="track-main"><div class="track-name">${t.name}</div><div class="track-info">${t.data.totalDist.toFixed(1)} km</div></div><div class="track-actions"><button class="tg">👁️</button><button class="del">✕</button></div>`;
     div.querySelector('.tg').onclick = (e) => { e.stopPropagation(); t.visible = !t.visible; renderTrackOnMap(t); sortAndRenderTracks(); };
     div.querySelector('.del').onclick = (e) => { e.stopPropagation(); if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getLayer(t.id+'-hit'))map.removeLayer(t.id+'-hit');if(map.getSource(t.id))map.removeSource(t.id);} tracks = tracks.filter(x => x.id !== t.id); if(activeTrackId === t.id) activeTrackId = tracks[0]?.id || null; if(activeTrackId) setActiveTrack(activeTrackId); sortAndRenderTracks(); fitAll(); };
+    // Double-clic pour renommer manuellement (utile si le lieu détecté
+    // automatiquement au chargement ne convient pas).
+    div.querySelector('.track-name').ondblclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt('Renommer la sortie :', t.name);
+      if (newName && newName.trim()) {
+        t.name = newName.trim();
+        if (t.id === activeTrackId) document.getElementById('active-track-name').textContent = t.name;
+        sortAndRenderTracks();
+      }
+    };
     div.onclick = (e) => { if(e.target.tagName !== 'BUTTON') setActiveTrack(t.id); };
     container.appendChild(div);
   });
