@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.6</title>
+<title>GPX Compare v3.7</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -437,11 +437,18 @@ function initMap() {
   });
 
   map.on('style.load', () => {
-    if (is3DMode) apply3DTerrain();
-    apply3DBuildings();
+    // On restaure d'abord les traces GPX et le curseur : même si l'étape 3D
+    // plante plus bas (style sans couche bâtiment exploitable), les traces
+    // doivent rester visibles après un changement de fond de carte.
     restoreTracksOnMap();
     initTrackerLayer();
     if (activeTrackId) setTrackPositionByRatio(currentRatio);
+    try {
+      if (is3DMode) apply3DTerrain();
+      apply3DBuildings();
+    } catch (err) {
+      console.error('Rendu 3D (terrain/bâtiments) indisponible sur ce fond de carte :', err);
+    }
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
 }
@@ -456,11 +463,20 @@ function apply3DTerrain() {
 
 function apply3DBuildings() {
   if (!map || !map.getStyle().layers) return;
-  const buildingLayer = map.getStyle().layers.find(l => (l.id.includes('building') || l.sourceLayer === 'building') && l.type !== 'fill-extrusion');
+  // Cherche une vraie couche vectorielle "building" (avec une source valide),
+  // en évitant les couches type "background" qui n'ont pas de source-layer.
+  const buildingLayer = map.getStyle().layers.find(l =>
+    l.source && (l.id.includes('building') || l['source-layer'] === 'building') && l.type !== 'fill-extrusion'
+  );
   if (buildingLayer && !map.getLayer('3d-buildings')) {
     map.addLayer({
-      'id': '3d-buildings', 'source': buildingLayer.source, 'source-layer': buildingLayer['source-layer'], 'type': 'fill-extrusion', 'minzoom': 14,
-      'paint': { 'fill-extrusion-color': '#d1d1d1', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10], 'fill-extrusion-opacity': 0.8 }
+      'id': '3d-buildings', 'source': buildingLayer.source, 'source-layer': buildingLayer['source-layer'], 'type': 'fill-extrusion', 'minzoom': 13,
+      'paint': {
+        'fill-extrusion-color': '#d1d1d1',
+        'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10],
+        'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0],
+        'fill-extrusion-opacity': 0.85
+      }
     }, buildingLayer.id);
   }
 }
@@ -762,6 +778,10 @@ function playStep(ts) {
 
 function playTrack() {
   if (currentRatio >= 1) currentRatio = 0;
+  // Repart de la position caméra actuelle (zoom/orientation) au lieu de
+  // l'ancienne valeur figée lors de la sélection de la trace : évite le
+  // saut de zoom au lancement si tu as zoomé/dézoomé entre-temps.
+  if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); }
   isPlaying = true; lastFrameTime = 0;
   document.getElementById('btnPlay').textContent = '⏸'; document.getElementById('btnPlay').classList.add('active');
   document.getElementById('btnCinemaPlay').textContent = '⏸ Pause';
