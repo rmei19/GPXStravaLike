@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.5</title>
+<title>GPX Compare v3.6</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -33,9 +33,7 @@
 html,body{margin:0;padding:0;height:100%;width:100%;font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
 body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--text-main);transition:background .2s, color .2s}
 
-/* =========================================
-   NOUVEAU TOPBAR AVEC ONGLETS
-   ========================================= */
+/* TOPBAR & ONGLETS */
 #topbar-wrapper {
   background: var(--bg-main);
   border-bottom: 1px solid var(--border-color);
@@ -108,12 +106,12 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 /* Modals */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:2000; display:flex; align-items:center; justify-content:center; padding:20px; }
 .modal-overlay.hidden { display:none; }
-.modal-box { background:var(--bg-panel); border:1px solid var(--border-color); border-radius:10px; padding:20px; max-width:400px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5); }
+.modal-box { background:var(--bg-panel); border:1px solid var(--border-color); border-radius:10px; padding:20px; max-width:420px; width:100%; box-shadow:0 10px 25px rgba(0,0,0,0.5); }
 .modal-box h3 { margin-top:0; font-size:16px; margin-bottom: 15px;}
 .modal-box p { font-size:13px; color:var(--text-sub); line-height:1.4; margin-bottom: 15px;}
 .modal-box input[type="text"] { width:100%; margin-bottom:15px; padding:8px; font-family:monospace; }
 .modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top: 15px;}
-.radio-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;}
+.radio-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;}
 .radio-group label { font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
 /* Drag & Drop & Status */
@@ -162,9 +160,7 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 .track button { padding:3px 6px; font-size:11px; background:var(--bg-card); color:var(--text-main) }
 .track.hidden { opacity:.45 }
 
-/* =========================================
-   MODE CINEMA PUR & ENREGISTREMENT
-   ========================================= */
+/* MODE CINÉMA */
 body.cinema-mode #topbar-wrapper,
 body.cinema-mode #drop,
 body.cinema-mode #status,
@@ -184,17 +180,15 @@ body.cinema-mode #cinema-overlay { display: flex; }
 #cinema-overlay button#btnCinemaExit { background: #e53935; }
 #cinema-stats { color: white; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 130px; text-align: center; }
 
-/* Indicateur d'enregistrement flottant */
+/* Indicateur enregistrement */
 #record-indicator {
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
   background: rgba(229, 57, 53, 0.9); color: white; padding: 10px 20px;
   border-radius: 30px; display: none; align-items: center; gap: 15px;
   z-index: 9999; font-weight: bold; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-  animation: pulse 2s infinite;
 }
 #record-indicator.active { display: flex; }
 #record-indicator button { background: white; color: #e53935; padding: 5px 12px; border-radius: 20px; font-size: 12px; border: none; cursor: pointer; font-weight: bold;}
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229,57,53, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(229,57,53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229,57,53, 0); } }
 
 .mobile-only { display:none }
 
@@ -216,7 +210,7 @@ body.cinema-mode #cinema-overlay { display: flex; }
 <div id="keyModal" class="modal-overlay hidden">
   <div class="modal-box">
     <h3>🔑 Configuration MapTiler</h3>
-    <p>Pour utiliser la 3D et les bâtiments (fonds Topo/Rando), saisis ta clé API MapTiler.</p>
+    <p>Pour utiliser la 3D et les bâtiments, saisis ta clé API MapTiler.</p>
     <input type="text" id="apiKeyInput" placeholder="Ex: eXamPleKeY123456">
     <div class="modal-actions">
       <button id="closeKeyBtn">Annuler</button>
@@ -229,17 +223,18 @@ body.cinema-mode #cinema-overlay { display: flex; }
 <div id="exportModal" class="modal-overlay hidden">
   <div class="modal-box">
     <h3>🎬 Options d'exportation vidéo</h3>
-    <p>La vidéo enregistrera la carte et ses mouvements (animation de la trace, rotations).</p>
+    <p>Choisis le format d'affichage et la qualité d'encodage.</p>
     
     <div class="radio-group">
-      <label>
-        <input type="radio" name="exportMode" value="normal" checked>
-        <b>Mode Normal :</b> Interface visible (la vidéo aura les proportions actuelles de la carte).
-      </label>
-      <label>
-        <input type="radio" name="exportMode" value="cinema">
-        <b>Mode Cinéma :</b> Plein écran absolu (idéal pour un format 16:9 cinématographique).
-      </label>
+      <label><input type="radio" name="exportMode" value="normal" checked><b>Mode Normal :</b> Interface visible</label>
+      <label><input type="radio" name="exportMode" value="cinema"><b>Mode Cinéma :</b> Plein écran absolu</label>
+    </div>
+
+    <hr style="border:0; border-top:1px solid var(--border-color); margin:12px 0;">
+
+    <div class="radio-group">
+      <label><input type="radio" name="exportQuality" value="standard" checked><b>Standard :</b> Léger (Téléphone, 30fps)</label>
+      <label><input type="radio" name="exportQuality" value="high"><b>Haute Qualité :</b> Fluide & Net (PC, 60fps, 8Mbps)</label>
     </div>
 
     <div class="modal-actions">
@@ -251,55 +246,48 @@ body.cinema-mode #cinema-overlay { display: flex; }
 
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
-  
   <div id="topbar-tabs">
-    <h1>GPX Compare v3.5</h1>
-    <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers & Traces</button>
-    <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & Vues</button>
-    <button class="tab-btn" data-tab="tb-export">🎬 Cinéma & Export</button>
+    <h1>GPX Compare</h1>
+    <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
+    <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
+    <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
   </div>
 
-  <!-- Onglet 1 -->
   <div id="tb-fichiers" class="tb-panel active">
     <label class="file-label">➕ Charger GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
     <button id="clearBtn">🗑️ Tout effacer</button>
     <button id="toggleSide" class="mobile-only">📋 Panneau Sorties</button>
   </div>
 
-  <!-- Onglet 2 -->
   <div id="tb-carte" class="tb-panel">
     <select id="mapStyleSelect">
-      <option value="osm" selected>🗺️ OpenStreetMap (Gratuit)</option>
-      <option value="outdoor-v2">🌲 MapTiler Rando (Requis Clé)</option>
-      <option value="satellite">🛰️ MapTiler Satellite (Requis Clé)</option>
-      <option value="topo-v2">⛰️ MapTiler Topo (Requis Clé)</option>
+      <option value="osm" selected>🗺️ OpenStreetMap</option>
+      <option value="outdoor-v2">🌲 MapTiler Rando</option>
+      <option value="satellite">🛰️ MapTiler Satellite</option>
+      <option value="topo-v2">⛰️ MapTiler Topo</option>
     </select>
-    <button id="btn3D">📐 Activer 3D</button>
-    <button id="fitBtn">🎯 Recentrer vue</button>
+    <button id="btn3D">📐 3D</button>
+    <button id="fitBtn">🎯 Recentrer</button>
     <button id="btnFullscreen">⛶ Plein écran</button>
     <select id="themeSelect">
-      <option value="system" selected>💻 Thème Système</option>
+      <option value="system" selected>💻 Système</option>
       <option value="dark">🌙 Sombre</option>
       <option value="light">☀️ Clair</option>
     </select>
   </div>
 
-  <!-- Onglet 3 -->
   <div id="tb-export" class="tb-panel">
-    <button id="btnCinema">🎦 Mode Cinéma (F11)</button>
-    <button id="btnExportVideoOpen">🎬 Exporter une vidéo</button>
-    <button id="btnKey">🔑 Clé API MapTiler</button>
+    <button id="btnCinema">🎦 Mode Cinéma</button>
+    <button id="btnExportVideoOpen" style="background:#e53935; border-color:#e53935; color:#fff;">🎬 Exporter Vidéo</button>
+    <button id="btnKey">🔑 Clé API</button>
   </div>
-
 </div>
 
-<!-- Status Global -->
 <div id="drop">Glisse-dépose tes fichiers GPX ici</div>
 <div id="status"></div>
 
-<!-- Indicateur d'enregistrement -->
 <div id="record-indicator">
-  <span class="dot">🔴</span> Enregistrement en cours...
+  <span>🔴 Enregistrement en cours...</span>
   <button id="btnStopRecordGlobal">Arrêter ⏹</button>
 </div>
 
@@ -307,16 +295,11 @@ body.cinema-mode #cinema-overlay { display: flex; }
   <div id="main-view">
     <div id="map-container">
       <div id="map"></div>
-      
-      <!-- Overlay Cinéma -->
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
-        <div id="cinema-stats">
-          <span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span>
-        </div>
-        <button id="btnCinemaExit">✕ Quitter Cinéma</button>
+        <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span></div>
+        <button id="btnCinemaExit">✕ Quitter</button>
       </div>
-
     </div>
     
     <div id="profile-container">
@@ -324,35 +307,26 @@ body.cinema-mode #cinema-overlay { display: flex; }
         <span id="active-track-name">Aucune sortie active</span>
         <span id="active-track-stats"></span>
       </div>
-      
-      <div id="canvas-wrap">
-        <canvas id="elevationCanvas"></canvas>
-      </div>
-
+      <div id="canvas-wrap"><canvas id="elevationCanvas"></canvas></div>
       <div id="tracker-controls">
-        <div class="control-group">
-          <button id="btnPlay">▶</button>
-        </div>
-        
+        <div class="control-group"><button id="btnPlay">▶</button></div>
         <input type="range" id="trackSlider" min="0" max="1" value="0" step="0.001" disabled>
-        
         <div class="control-group">
           <select id="animDurationSelect">
-            <option value="15">⏱️ 15 sec</option>
-            <option value="30" selected>⏱️ 30 sec</option>
-            <option value="60">⏱️ 1 min</option>
-            <option value="120">⏱️ 2 min</option>
+            <option value="15">15 sec</option>
+            <option value="30" selected>30 sec</option>
+            <option value="60">1 min</option>
+            <option value="120">2 min</option>
           </select>
           <select id="camModeSelect">
-            <option value="threshold" selected>🎯 Caméra : Seuil (25°)</option>
-            <option value="smooth">🌀 Caméra : Fluide</option>
-            <option value="fixed">🔒 Caméra : Fixe (Nord)</option>
-            <option value="off">🚫 Caméra : Libre</option>
+            <option value="threshold" selected>🎯 Cam: Seuil (25°)</option>
+            <option value="smooth">🌀 Cam: Fluide</option>
+            <option value="fixed">🔒 Cam: Fixe</option>
+            <option value="off">🚫 Cam: Libre</option>
           </select>
         </div>
-
         <div id="tracker-stats-bar">
-          <span>Distance: <b id="stDist">0.0 km</b></span>
+          <span>Dist: <b id="stDist">0.0 km</b></span>
           <span>Alt: <b id="stAlt">-- m</b></span>
           <span>D+: <b id="stDplus">0 m</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
@@ -367,10 +341,10 @@ body.cinema-mode #cinema-overlay { display: flex; }
       <h2>Sorties</h2>
       <div id="side-tools">
         <select id="sortSelect">
-          <option value="manual">🖐️ Ordre manuel</option>
-          <option value="name">🔤 Nom (A-Z)</option>
+          <option value="manual">🖐️ Manuel</option>
+          <option value="name">🔤 Nom</option>
           <option value="dist">📏 Distance</option>
-          <option value="dplus">📈 Dénivelé (D+)</option>
+          <option value="dplus">📈 D+</option>
         </select>
       </div>
       <div id="stats"></div>
@@ -382,45 +356,35 @@ body.cinema-mode #cinema-overlay { display: flex; }
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
 <script>
-// =====================================
-// GESTION DES ONGLETS TOPBAR
-// =====================================
+// Onglets
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tbPanels = document.querySelectorAll('.tb-panel');
-
 tabBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     tabBtns.forEach(b => b.classList.remove('active'));
     tbPanels.forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.add('active');
-    // Important: forcer le redimensionnement de la carte si la hauteur du topbar change
-    setTimeout(() => { if(map) map.resize(); }, 50); 
+    setTimeout(() => { if(map) map.resize(); }, 50);
   });
 });
 
-
-// =====================================
-// API KEY & MAPTILER
-// =====================================
+// MapTiler & Clé
 let MAPTILER_KEY = localStorage.getItem('maptiler_api_key') || '';
 const keyModal = document.getElementById('keyModal');
 const apiKeyInput = document.getElementById('apiKeyInput');
-const btnKey = document.getElementById('btnKey');
-let pendingAction = null; 
+let pendingAction = null;
 
 document.getElementById('closeKeyBtn').addEventListener('click', () => {
   keyModal.classList.add('hidden');
-  if (pendingAction === 'style') document.getElementById('mapStyleSelect').value = 'osm'; 
+  if (pendingAction === 'style') document.getElementById('mapStyleSelect').value = 'osm';
   pendingAction = null;
 });
-
-btnKey.addEventListener('click', () => {
+document.getElementById('btnKey').addEventListener('click', () => {
   pendingAction = null;
   apiKeyInput.value = MAPTILER_KEY;
   keyModal.classList.remove('hidden');
 });
-
 document.getElementById('saveKeyBtn').addEventListener('click', () => {
   const val = apiKeyInput.value.trim();
   if (val) {
@@ -428,30 +392,30 @@ document.getElementById('saveKeyBtn').addEventListener('click', () => {
     localStorage.setItem('maptiler_api_key', val);
     keyModal.classList.add('hidden');
     if (pendingAction === '3d') document.getElementById('btn3D').click();
-    else if (pendingAction === 'style' || pendingAction === 'init') {
-      map.setStyle(getStyleUrl(document.getElementById('mapStyleSelect').value));
-      if (is3DMode) setTimeout(apply3DTerrain, 500);
-    }
+    else if (pendingAction === 'style') map.setStyle(getStyleUrl(document.getElementById('mapStyleSelect').value));
     pendingAction = null;
-  } else {
-    alert('Veuillez saisir une clé valide.');
-  }
+  } else alert('Clé vide.');
 });
 
-
-// =====================================
-// CARTE & 3D
-// =====================================
+// Carte & Amortisseurs de Caméra (Lerp)
 const ELE_THRESHOLD = 1.5;
-let is3DMode = false;
-let map = null;
+let is3DMode = false, map = null;
+let currentCameraBearing = 0;
+let currentCameraZoom = 14;
+const SMOOTHING_FACTOR = 0.06; // Ajustement de l'amorti anti-vibration
+
+function lerp(start, end, amount) { return (1 - amount) * start + amount * end; }
+function lerpAngle(start, end, amount) {
+    let diff = end - start;
+    while (diff > 180) diff -= 360;
+    while (diff < -180) diff += 360;
+    return start + diff * amount;
+}
 
 const osmStyle = {
   "version": 8,
-  "sources": {
-    "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256, "attribution": "&copy; OpenStreetMap" }
-  },
-  "layers": [{ "id": "osm-layer", "type": "raster", "source": "osm", "minzoom": 0, "maxzoom": 19 }]
+  "sources": { "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 } },
+  "layers": [{ "id": "osm-layer", "type": "raster", "source": "osm" }]
 };
 
 function getStyleUrl(styleName) {
@@ -463,17 +427,12 @@ function initMap() {
   map = new maplibregl.Map({
     container: 'map',
     style: getStyleUrl(document.getElementById('mapStyleSelect').value),
-    center: [2.5, 46.6],
-    zoom: 5.5,
-    pitch: 0,
-    bearing: 0,
-    maxPitch: 85,
-    preserveDrawingBuffer: true,
-    transformRequest: (url, resourceType) => {
-      if (url.indexOf('maptiler.com') !== -1 && url.indexOf('key=') === -1) {
-        return { url: url + (url.indexOf('?') === -1 ? '?' : '&') + 'key=' + MAPTILER_KEY };
+    center: [2.5, 46.6], zoom: 5.5, maxPitch: 85, preserveDrawingBuffer: true,
+    transformRequest: (url) => {
+      if (url.includes('maptiler.com') && !url.includes('key=')) {
+        return { url: url + (url.includes('?') ? '&' : '?') + 'key=' + MAPTILER_KEY };
       }
-      return { url: url };
+      return { url };
     }
   });
 
@@ -484,7 +443,6 @@ function initMap() {
     initTrackerLayer();
     if (activeTrackId) setTrackPositionByRatio(currentRatio);
   });
-  
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
 }
 
@@ -498,13 +456,12 @@ function apply3DTerrain() {
 
 function apply3DBuildings() {
   if (!map || !map.getStyle().layers) return;
-  const layers = map.getStyle().layers;
-  const buildingLayer = layers.find(l => (l.id.includes('building') || l.sourceLayer === 'building') && l.type !== 'fill-extrusion');
+  const buildingLayer = map.getStyle().layers.find(l => (l.id.includes('building') || l.sourceLayer === 'building') && l.type !== 'fill-extrusion');
   if (buildingLayer && !map.getLayer('3d-buildings')) {
     map.addLayer({
       'id': '3d-buildings', 'source': buildingLayer.source, 'source-layer': buildingLayer['source-layer'], 'type': 'fill-extrusion', 'minzoom': 14,
-      'paint': { 'fill-extrusion-color': '#d1d1d1', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10], 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], ['get', 'min_height'], 0], 'fill-extrusion-opacity': 0.8 }
-    }, buildingLayer.id); 
+      'paint': { 'fill-extrusion-color': '#d1d1d1', 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], ['get', 'height'], 10], 'fill-extrusion-opacity': 0.8 }
+    }, buildingLayer.id);
   }
 }
 
@@ -512,105 +469,99 @@ function initTrackerLayer() {
   if (!map) return;
   if (!map.getSource('tracker-source')) {
     map.addSource('tracker-source', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] } } });
-    map.addLayer({
-      id: 'tracker-layer', type: 'circle', source: 'tracker-source',
-      paint: { 'circle-radius': 7, 'circle-color': '#00aaff', 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' }
-    });
-  } else if (map.getLayer('tracker-layer')) { map.moveLayer('tracker-layer'); }
+    map.addLayer({ id: 'tracker-layer', type: 'circle', source: 'tracker-source', paint: { 'circle-radius': 7, 'circle-color': '#00aaff', 'circle-stroke-width': 3, 'circle-stroke-color': '#fff' } });
+  } else if (map.getLayer('tracker-layer')) map.moveLayer('tracker-layer');
 }
 
 document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
-  if (e.target.value !== 'osm' && !MAPTILER_KEY) { openKeyModal('style'); return; }
-  if (map) map.setStyle(getStyleUrl(e.target.value));
+  if (e.target.value !== 'osm' && !MAPTILER_KEY) { pendingAction = 'style'; keyModal.classList.remove('hidden'); return; }
+  map.setStyle(getStyleUrl(e.target.value));
 });
 
 document.getElementById('themeSelect').addEventListener('change', (e) => {
   const t = e.target.value;
-  if(t === 'system') document.documentElement.setAttribute('data-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  else document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.setAttribute('data-theme', t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
 });
 
 document.getElementById('btn3D').addEventListener('click', () => {
-  if (!is3DMode && !MAPTILER_KEY) { openKeyModal('3d'); return; }
+  if (!is3DMode && !MAPTILER_KEY) { pendingAction = '3d'; keyModal.classList.remove('hidden'); return; }
   is3DMode = !is3DMode;
   document.getElementById('btn3D').classList.toggle('active', is3DMode);
   if (map) {
-    if (is3DMode) { apply3DTerrain(); map.easeTo({ pitch: 60, duration: 800 }); } 
+    if (is3DMode) { apply3DTerrain(); map.easeTo({ pitch: 60, duration: 800 }); }
     else { map.setTerrain(null); map.easeTo({ pitch: 0, duration: 800 }); }
   }
 });
 
-
-// =====================================
-// MODE CINÉMA
-// =====================================
+// Cinéma & Export Vidéo
 const btnCinema = document.getElementById('btnCinema');
 const btnCinemaExit = document.getElementById('btnCinemaExit');
 let isCinemaMode = false;
 
-function toggleCinemaMode(forceState = null) {
-  isCinemaMode = forceState !== null ? forceState : !isCinemaMode;
+function toggleCinemaMode(force = null) {
+  isCinemaMode = force !== null ? force : !isCinemaMode;
   document.body.classList.toggle('cinema-mode', isCinemaMode);
   setTimeout(() => { if (map) map.resize(); resizeCanvas(); }, 300);
 }
 btnCinema.addEventListener('click', () => toggleCinemaMode());
 btnCinemaExit.addEventListener('click', () => toggleCinemaMode(false));
 
-
-// =====================================
-// EXPORT VIDEO (NOUVEAU)
-// =====================================
 const exportModal = document.getElementById('exportModal');
-const btnExportVideoOpen = document.getElementById('btnExportVideoOpen');
-const btnStopRecordGlobal = document.getElementById('btnStopRecordGlobal');
 const recordIndicator = document.getElementById('record-indicator');
+let isRecording = false, mediaRecorder = null, recordInterval = null;
 
-let isRecording = false;
-let mediaRecorder = null;
-let recordInterval = null;
-
-btnExportVideoOpen.addEventListener('click', () => {
-  if (!activeTrackId) { alert('Veuillez d\'abord charger et sélectionner un tracé.'); return; }
+document.getElementById('btnExportVideoOpen').addEventListener('click', () => {
+  if (!activeTrackId) { alert('Charge et sélectionne un tracé d\'abord.'); return; }
   if (isRecording) { stopRecording(); return; }
   exportModal.classList.remove('hidden');
 });
-
-document.getElementById('closeExportBtn').addEventListener('click', () => {
-  exportModal.classList.add('hidden');
-});
+document.getElementById('closeExportBtn').addEventListener('click', () => exportModal.classList.add('hidden'));
 
 document.getElementById('startExportBtn').addEventListener('click', () => {
   const mode = document.querySelector('input[name="exportMode"]:checked').value;
   exportModal.classList.add('hidden');
-  
   if (mode === 'cinema' && !isCinemaMode) {
     toggleCinemaMode(true);
-    setTimeout(startRecording, 500); // Laisse le temps à la carte de se redimensionner
-  } else {
-    startRecording();
-  }
+    setTimeout(startRecording, 600);
+  } else startRecording();
 });
 
-btnStopRecordGlobal.addEventListener('click', stopRecording);
+document.getElementById('btnStopRecordGlobal').addEventListener('click', stopRecording);
 
 function startRecording() {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr || !map) return;
 
-  const mapCanvas = map.getCanvas();
-  const stream = mapCanvas.captureStream(30);
-  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-  const chunks = [];
+  const quality = document.querySelector('input[name="exportQuality"]:checked').value;
+  let fps = quality === 'high' ? 60 : 30;
+  let bitrate = quality === 'high' ? 8000000 : 2500000;
 
+  const stream = map.getCanvas().captureStream(fps);
+  try {
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: bitrate });
+  } catch(e) {
+    mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
+  }
+
+  const chunks = [];
   mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-  mediaRecorder.onstop = () => finalizeVideo(chunks, activeTr.name);
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('Export vidéo terminé !');
+  };
+
   mediaRecorder.start();
   isRecording = true;
-  
   recordIndicator.classList.add('active');
-  setStatus('🔴 Enregistrement en cours...');
-  
-  setTrackPositionByRatio(0);
+  setStatus('🔴 Enregistrement...');
+
+  currentRatio = 0;
   playTrack();
 
   recordInterval = setInterval(() => {
@@ -626,25 +577,10 @@ function stopRecording() {
   recordIndicator.classList.remove('active');
 }
 
-function finalizeVideo(chunks, trackName) {
-  const blob = new Blob(chunks, { type: 'video/webm' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${trackName.replace(/\.[^/.]+$/, "")}_3d_map.webm`;
-  a.click();
-  URL.revokeObjectURL(url);
-  setStatus('Export vidéo terminé !');
-}
-
-
-// =====================================
-// GESTION DU RESTE (LOGIQUE GPX)
-// =====================================
+// Logique GPX & Animation Lissée
 const colors = ['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b','#6d4c41','#3949ab','#d81b60','#546e7a'];
 let tracks = [], colorIndex = 0, activeTrackId = null;
-let isPlaying = false, playAnimationId = null, currentRatio = 0, lastFrameTime = 0, currentCamBearing = 0;
-const CAM_THRESHOLD_ANGLE = 25;
+let isPlaying = false, playAnimationId = null, currentRatio = 0, lastFrameTime = 0;
 
 const canvas = document.getElementById('elevationCanvas');
 const ctx = canvas.getContext('2d');
@@ -652,67 +588,66 @@ const trackSlider = document.getElementById('trackSlider');
 const canvasWrap = document.getElementById('canvas-wrap');
 
 document.getElementById('btnFullscreen').addEventListener('click', () => {
-  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => alert(err.message));
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen();
   else document.exitFullscreen();
 });
 
 function resizeCanvas() {
-  if (isCinemaMode) return; 
+  if (isCinemaMode) return;
   const rect = canvasWrap.getBoundingClientRect();
-  if(rect.width === 0) return;
+  if (rect.width === 0) return;
   canvas.width = rect.width * window.devicePixelRatio;
   canvas.height = rect.height * window.devicePixelRatio;
   drawElevationProfile();
 }
-window.addEventListener('resize', () => { resizeCanvas(); if (map) map.resize(); });
+window.addEventListener('resize', () => { resizeCanvas(); if(map) map.resize(); });
 
-document.getElementById('fileInput').addEventListener('change', e => { loadFiles([...e.target.files]); e.target.value = ''; });
+document.getElementById('fileInput').addEventListener('change', e => { loadFiles([...e.target.files]); e.target.value=''; });
 document.getElementById('drop').addEventListener('drop', e => { e.preventDefault(); document.getElementById('drop').classList.remove('drag'); loadFiles([...e.dataTransfer.files]); });
 ['dragenter', 'dragover'].forEach(ev => document.getElementById('drop').addEventListener(ev, e => { e.preventDefault(); document.getElementById('drop').classList.add('drag'); }));
 ['dragleave', 'drop'].forEach(ev => document.getElementById('drop').addEventListener(ev, e => document.getElementById('drop').classList.remove('drag')));
 
-function loadFiles(files) { files.filter(f => (f.name || '').toLowerCase().endsWith('.gpx') || !(f.name || '').includes('.')).forEach(readFile); }
+function loadFiles(files) { files.filter(f => f.name.toLowerCase().endsWith('.gpx') || !f.name.includes('.')).forEach(readFile); }
 function readFile(file) {
-  setStatus('Lecture de ' + file.name + '…');
-  const reader = new FileReader();
-  reader.onload = () => { try { addGPX(file.name, reader.result); setStatus(file.name + ' chargé.'); } catch (err) { alert(err.message); } };
-  reader.readAsText(file, 'UTF-8');
+  const r = new FileReader();
+  r.onload = () => { addGPX(file.name, r.result); setStatus(file.name + ' chargé.'); };
+  r.readAsText(file, 'UTF-8');
 }
 
 function parseGPX(text) {
   const xml = new DOMParser().parseFromString(text, 'application/xml');
   const all = [...xml.getElementsByTagName('*')];
   return all.filter(p => p.localName === 'trkpt' || p.localName === 'rtept').map(p => {
-    const eleNode = p.querySelector('ele') || all.find(x => x.parentNode === p && x.localName === 'ele');
-    const timeNode = p.querySelector('time') || all.find(x => x.parentNode === p && x.localName === 'time');
-    return { lat: parseFloat(p.getAttribute('lat')), lon: parseFloat(p.getAttribute('lon')), ele: eleNode ? parseFloat(eleNode.textContent) : null, time: timeNode ? new Date(timeNode.textContent).getTime() : null };
-  }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
+    const ele = p.querySelector('ele') || all.find(x => x.parentNode === p && x.localName === 'ele');
+    const time = p.querySelector('time') || all.find(x => x.parentNode === p && x.localName === 'time');
+    return { lat: parseFloat(p.getAttribute('lat')), lon: parseFloat(p.getAttribute('lon')), ele: ele ? parseFloat(ele.textContent) : null, time: time ? new Date(time.textContent).getTime() : null };
+  }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
 }
 
 function calculateTrackData(points) {
-  let cumDist = 0, cumDplus = 0, minEle = Infinity, maxEle = -Infinity, hasElevation = false, trackPts = [], lastEle = points[0] ? points[0].ele : null;
-  const hasTime = points.length > 0 && points[0].time !== null && points[points.length-1].time !== null;
-  const startTime = hasTime ? points[0].time : 0, totalTime = hasTime ? points[points.length-1].time - startTime : 0;
-  for (let i = 0; i < points.length; i++) {
-    const pt = points[i];
+  let cumDist = 0, cumDplus = 0, minEle = Infinity, maxEle = -Infinity, hasEle = false, trackPts = [], lastEle = points[0]?.ele;
+  const hasTime = points.length > 0 && points[0].time && points[points.length-1].time;
+  const startT = hasTime ? points[0].time : 0, totalT = hasTime ? points[points.length-1].time - startT : 0;
+  
+  points.forEach((pt, i) => {
     if (i > 0) cumDist += haversine(points[i-1].lat, points[i-1].lon, pt.lat, pt.lon);
     if (pt.ele !== null && !isNaN(pt.ele)) {
-      hasElevation = true; if (pt.ele < minEle) minEle = pt.ele; if (pt.ele > maxEle) maxEle = pt.ele;
+      hasEle = true; if (pt.ele < minEle) minEle = pt.ele; if (pt.ele > maxEle) maxEle = pt.ele;
       if (lastEle !== null) { const diff = pt.ele - lastEle; if (diff >= ELE_THRESHOLD) cumDplus += diff; }
       lastEle = pt.ele;
     }
-    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, fraction: (hasTime && totalTime > 0) ? (pt.time - startTime)/totalTime : cumDist });
-  }
-  if (!hasTime && cumDist > 0) trackPts.forEach(p => p.fraction = p.fraction / cumDist);
-  return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, minEle: hasElevation ? minEle : 0, maxEle: hasElevation ? maxEle : 0, hasElevation };
+    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, fraction: (hasTime && totalT > 0) ? (pt.time - startT)/totalT : cumDist });
+  });
+  if (!hasTime && cumDist > 0) trackPts.forEach(p => p.fraction /= cumDist);
+  return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, minEle: hasEle ? minEle : 0, maxEle: hasEle ? maxEle : 0, hasElevation: hasEle };
 }
 
 function addGPX(name, text) {
   const data = calculateTrackData(parseGPX(text));
-  const trackObj = { id: 'track-' + Date.now(), name, color: colors[colorIndex++ % colors.length], visible: true, data };
-  tracks.push(trackObj);
-  renderTrackOnMap(trackObj); sortAndRenderTracks();
-  if (!activeTrackId) setActiveTrack(trackObj.id); else drawElevationProfile();
+  const t = { id: 't-' + Math.random(), name, color: colors[colorIndex++ % colors.length], visible: true, data };
+  tracks.push(t);
+  renderTrackOnMap(t); sortAndRenderTracks();
+  if (!activeTrackId) setActiveTrack(t.id); else drawElevationProfile();
   fitAll();
 }
 
@@ -720,148 +655,168 @@ function renderTrackOnMap(t) {
   if (!map) return;
   if (!map.getSource(t.id)) {
     map.addSource(t.id, { 'type': 'geojson', 'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': t.data.points.map(p => [p.lon, p.lat]) } } });
-    map.addLayer({ 'id': t.id, 'type': 'line', 'source': t.id, 'layout': { 'line-join': 'round', 'line-cap': 'round' }, 'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 } });
-  } else if(map.getLayer(t.id)) map.moveLayer(t.id);
+    map.addLayer({ 'id': t.id, 'type': 'line', 'source': t.id, 'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 } });
+  }
   map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none');
-  if (map.getLayer('tracker-layer')) map.moveLayer('tracker-layer');
+  initTrackerLayer();
 }
-
 function restoreTracksOnMap() { tracks.forEach(renderTrackOnMap); }
 
 function setActiveTrack(id) {
-  activeTrackId = id; const tr = tracks.find(t => t.id === activeTrackId); if (!tr) return;
-  pauseTrack(); currentRatio = 0; trackSlider.disabled = false; trackSlider.value = 0;
-  currentCamBearing = map ? map.getBearing() : 0; 
+  activeTrackId = id; const tr = tracks.find(t => t.id === id); if (!tr) return;
+  pauseTrack(); currentRatio = 0; trackSlider.disabled = false;
+  currentCameraBearing = map ? map.getBearing() : 0;
+  currentCameraZoom = map ? map.getZoom() : 14;
   document.getElementById('active-track-name').textContent = tr.name;
-  document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m D+`;
+  document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m`;
   sortAndRenderTracks(); drawElevationProfile(); setTrackPositionByRatio(0);
 }
 
 function drawElevationProfile() {
-  if(isCinemaMode || canvas.width === 0) return;
+  if (isCinemaMode || canvas.width === 0) return;
   const w = canvas.width, h = canvas.height; ctx.clearRect(0, 0, w, h);
-  const activeTr = tracks.find(t => t.id === activeTrackId);
-  if (!activeTr || !activeTr.data.hasElevation || !activeTr.data.points.length) return;
-  const pts = activeTr.data.points, minEle = activeTr.data.minEle, maxEle = activeTr.data.maxEle, eleSpan = (maxEle - minEle) || 50;
-  const padding = 15 * window.devicePixelRatio, plotW = w - padding * 2, plotH = h - padding * 2;
-  ctx.beginPath(); ctx.moveTo(padding, h - padding);
-  pts.forEach(p => ctx.lineTo(padding + p.fraction * plotW, h - padding - (((p.ele !== null ? p.ele : minEle) - minEle) / eleSpan) * plotH));
-  ctx.lineTo(padding + plotW, h - padding); ctx.closePath();
-  ctx.fillStyle = activeTr.color + "44"; ctx.fill(); ctx.strokeStyle = activeTr.color; ctx.lineWidth = 2 * window.devicePixelRatio; ctx.stroke();
-  const cx = padding + currentRatio * plotW;
-  let curEle = minEle;
-  for (let i = 0; i < pts.length - 1; i++) if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) { curEle = pts[i].ele + (pts[i+1].ele - pts[i].ele) * ((currentRatio - pts[i].fraction) / (pts[i+1].fraction - pts[i].fraction || 1)); break; }
-  const cy = h - padding - ((curEle - minEle) / eleSpan) * plotH;
-  ctx.beginPath(); ctx.moveTo(cx, padding); ctx.lineTo(cx, h - padding); ctx.strokeStyle = "#fff"; ctx.setLineDash([3 * window.devicePixelRatio, 3 * window.devicePixelRatio]); ctx.stroke(); ctx.setLineDash([]);
-  ctx.beginPath(); ctx.arc(cx, cy, 5 * window.devicePixelRatio, 0, Math.PI * 2); ctx.fillStyle = "#00aaff"; ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2 * window.devicePixelRatio; ctx.stroke();
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!tr || !tr.data.hasElevation || !tr.data.points.length) return;
+  const pts = tr.data.points, min = tr.data.minEle, span = (tr.data.maxEle - min) || 50;
+  const pad = 15 * window.devicePixelRatio, pw = w - pad * 2, ph = h - pad * 2;
+  
+  ctx.beginPath(); ctx.moveTo(pad, h - pad);
+  pts.forEach(p => ctx.lineTo(pad + p.fraction * pw, h - pad - (((p.ele !== null ? p.ele : min) - min) / span) * ph));
+  ctx.lineTo(pad + pw, h - pad); ctx.closePath();
+  ctx.fillStyle = tr.color + "44"; ctx.fill(); ctx.strokeStyle = tr.color; ctx.lineWidth = 2 * window.devicePixelRatio; ctx.stroke();
+
+  const cx = pad + currentRatio * pw;
+  ctx.beginPath(); ctx.moveTo(cx, pad); ctx.lineTo(cx, h - pad); ctx.strokeStyle = "#fff"; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
 }
 
 let isPointerDown = false;
-canvasWrap.addEventListener('pointerdown', e => { isPointerDown = true; setTrackPositionByRatio(Math.max(0, Math.min(1, (e.clientX - canvasWrap.getBoundingClientRect().left - 15) / (canvasWrap.getBoundingClientRect().width - 30)))); });
-canvasWrap.addEventListener('pointermove', e => { if (isPointerDown) setTrackPositionByRatio(Math.max(0, Math.min(1, (e.clientX - canvasWrap.getBoundingClientRect().left - 15) / (canvasWrap.getBoundingClientRect().width - 30)))); });
+canvasWrap.addEventListener('pointerdown', e => { isPointerDown = true; updateScrub(e); });
+canvasWrap.addEventListener('pointermove', e => { if(isPointerDown) updateScrub(e); });
 window.addEventListener('pointerup', () => isPointerDown = false);
+function updateScrub(e) {
+  const rect = canvasWrap.getBoundingClientRect();
+  setTrackPositionByRatio(Math.max(0, Math.min(1, (e.clientX - rect.left - 15) / (rect.width - 30))));
+}
 trackSlider.addEventListener('input', e => setTrackPositionByRatio(parseFloat(e.target.value)));
 
 function setTrackPositionByRatio(ratio) {
-  const activeTr = tracks.find(t => t.id === activeTrackId); if (!activeTr || !activeTr.data.points.length) return;
-  currentRatio = Math.max(0, Math.min(1, ratio)); const pts = activeTr.data.points;
-  let p1, p2, frac = 0;
-  for (let i = 0; i < pts.length - 1; i++) if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) { p1 = pts[i]; p2 = pts[i+1]; frac = (currentRatio - p1.fraction) / (p2.fraction - p1.fraction || 1); break; }
-  if (!p1) { p1 = pts[pts.length-1]; p2 = p1; frac = 0; }
-  
-  const curLon = p1.lon + (p2.lon - p1.lon) * frac, curLat = p1.lat + (p2.lat - p1.lat) * frac, curEle = p1.ele !== null ? p1.ele + (p2.ele - p1.ele) * frac : p1.ele, curDist = p1.dist + (p2.dist - p1.dist) * frac;
-  
+  const tr = tracks.find(t => t.id === activeTrackId); if (!tr || !tr.data.points.length) return;
+  currentRatio = Math.max(0, Math.min(1, ratio)); const pts = tr.data.points;
+  let p1, p2, f = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) {
+      p1 = pts[i]; p2 = pts[i+1]; f = (currentRatio - p1.fraction) / (p2.fraction - p1.fraction || 1); break;
+    }
+  }
+  if (!p1) { p1 = pts[pts.length-1]; p2 = p1; }
+
+  const lon = p1.lon + (p2.lon - p1.lon) * f, lat = p1.lat + (p2.lat - p1.lat) * f;
+  const ele = p1.ele !== null ? p1.ele + (p2.ele - p1.ele) * f : null;
+  const dist = p1.dist + (p2.dist - p1.dist) * f;
+
   if (map) {
-    if (map.getSource('tracker-source')) map.getSource('tracker-source').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [curLon, curLat] } });
+    if (map.getSource('tracker-source')) map.getSource('tracker-source').setData({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] } });
+    
     const camMode = document.getElementById('camModeSelect').value;
     if (camMode !== 'off') {
       let targetBearing = map.getBearing();
       if (camMode === 'fixed') targetBearing = 0;
       else {
-        let rawBearing = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
-        if (!isNaN(rawBearing)) {
+        let rawB = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
+        if (!isNaN(rawB)) {
           if (camMode === 'threshold') {
-            let diff = (2 * ((rawBearing - currentCamBearing) % 360)) % 360 - ((rawBearing - currentCamBearing) % 360);
-            if (Math.abs(diff) > CAM_THRESHOLD_ANGLE) currentCamBearing = (currentCamBearing + (diff > 0 ? diff - CAM_THRESHOLD_ANGLE : diff + CAM_THRESHOLD_ANGLE)) % 360;
-          } else if (camMode === 'smooth') {
-            let da = (rawBearing - currentCamBearing) % 360;
-            currentCamBearing = currentCamBearing + ((2 * da) % 360 - da) * 0.05;
+            let diff = (2 * ((rawB - currentCameraBearing) % 360)) % 360 - ((rawB - currentCameraBearing) % 360);
+            if (Math.abs(diff) > 25) currentCameraBearing = (currentCameraBearing + (diff > 0 ? diff - 25 : diff + 25)) % 360;
+            targetBearing = currentCameraBearing;
+          } else {
+            currentCameraBearing = lerpAngle(currentCameraBearing, rawB, SMOOTHING_FACTOR);
+            targetBearing = currentCameraBearing;
           }
-          targetBearing = currentCamBearing;
         }
       }
-      map.jumpTo({ center: [curLon, curLat], zoom: map.getZoom(), pitch: is3DMode ? 60 : 0, bearing: targetBearing });
+      
+      // Amorti du zoom / altitude de la caméra pour éviter les sauts brusques
+      let targetZoom = map.getZoom();
+      currentCameraZoom = lerp(currentCameraZoom, targetZoom, SMOOTHING_FACTOR);
+
+      map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom, pitch: is3DMode ? 60 : 0, bearing: targetBearing });
     }
   }
+
   trackSlider.value = currentRatio;
-  document.getElementById('stDist').textContent = curDist.toFixed(1) + ' km'; document.getElementById('c-dist').textContent = curDist.toFixed(1) + ' km';
-  document.getElementById('stAlt').textContent = curEle !== null ? Math.round(curEle) + ' m' : '-- m'; document.getElementById('c-alt').textContent = curEle !== null ? Math.round(curEle) + ' m' : '-- m';
+  document.getElementById('stDist').textContent = dist.toFixed(1) + ' km'; document.getElementById('c-dist').textContent = dist.toFixed(1) + ' km';
+  document.getElementById('stAlt').textContent = ele !== null ? Math.round(ele) + ' m' : '-- m'; document.getElementById('c-alt').textContent = ele !== null ? Math.round(ele) + ' m' : '-- m';
   document.getElementById('stProg').textContent = Math.round(currentRatio * 100) + '%';
   drawElevationProfile();
 }
 
-function playStep(timestamp) {
+function playStep(ts) {
   if (!isPlaying) return;
-  if (!lastFrameTime) lastFrameTime = timestamp;
-  currentRatio += ((timestamp - lastFrameTime) / 1000) / parseFloat(document.getElementById('animDurationSelect').value);
-  lastFrameTime = timestamp;
+  if (!lastFrameTime) lastFrameTime = ts;
+  currentRatio += ((ts - lastFrameTime) / 1000) / parseFloat(document.getElementById('animDurationSelect').value);
+  lastFrameTime = ts;
   if (currentRatio >= 1) { setTrackPositionByRatio(1); pauseTrack(); return; }
   setTrackPositionByRatio(currentRatio);
   playAnimationId = requestAnimationFrame(playStep);
 }
 
 function playTrack() {
-  if (!tracks.find(t => t.id === activeTrackId)) return;
   if (currentRatio >= 1) currentRatio = 0;
   isPlaying = true; lastFrameTime = 0;
   document.getElementById('btnPlay').textContent = '⏸'; document.getElementById('btnPlay').classList.add('active');
   document.getElementById('btnCinemaPlay').textContent = '⏸ Pause';
   playAnimationId = requestAnimationFrame(playStep);
 }
-
 function pauseTrack() {
   isPlaying = false;
   document.getElementById('btnPlay').textContent = '▶'; document.getElementById('btnPlay').classList.remove('active');
   document.getElementById('btnCinemaPlay').textContent = '▶ Jouer';
   if (playAnimationId) cancelAnimationFrame(playAnimationId);
 }
-document.getElementById('btnPlay').addEventListener('click', () => isPlaying ? pauseTrack() : playTrack());
-document.getElementById('btnCinemaPlay').addEventListener('click', () => isPlaying ? pauseTrack() : playTrack());
+document.getElementById('btnPlay').onclick = () => isPlaying ? pauseTrack() : playTrack();
+document.getElementById('btnCinemaPlay').onclick = () => isPlaying ? pauseTrack() : playTrack();
 
 function sortAndRenderTracks() {
-  const mode = document.getElementById('sortSelect').value;
-  if (mode === 'name') tracks.sort((a, b) => a.name.localeCompare(b.name)); else if (mode === 'dist') tracks.sort((a, b) => b.data.totalDist - a.data.totalDist); else if (mode === 'dplus') tracks.sort((a, b) => b.data.totalDplus - a.data.totalDplus);
-  document.getElementById('tracks').innerHTML = '';
-  if (!tracks.length) { document.getElementById('stats').textContent = ''; document.getElementById('active-track-name').textContent = 'Aucune sortie active'; return; }
-  
-  tracks.forEach((t, i) => {
-    const div = document.createElement('div'); div.className = 'track' + (t.visible ? '' : ' hidden') + (t.id === activeTrackId ? ' active-track' : ''); div.draggable = true; div.dataset.index = i;
-    div.innerHTML = `<span class="swatch" style="background:${t.color}"></span><div class="track-main"><div class="track-name">${String(t.name).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}</div><div class="track-info">${t.data.totalDist.toFixed(1)} km · +${Math.round(t.data.totalDplus)} m</div></div><div class="track-actions"><button class="toggle-btn">${t.visible ? 'Masquer' : 'Afficher'}</button><button class="del-btn">✕</button></div>`;
-    div.querySelector('.toggle-btn').onclick = (e) => { e.stopPropagation(); t.visible = !t.visible; if (map && map.getLayer(t.id)) map.setLayoutProperty(t.id, 'visibility', t.visible ? 'visible' : 'none'); sortAndRenderTracks(); };
-    div.querySelector('.del-btn').onclick = (e) => { e.stopPropagation(); if (map) { if (map.getLayer(t.id)) map.removeLayer(t.id); if (map.getSource(t.id)) map.removeSource(t.id); } tracks = tracks.filter(x => x.id !== t.id); if (activeTrackId === t.id) { activeTrackId = tracks.length ? tracks[0].id : null; if(activeTrackId) setActiveTrack(activeTrackId); } sortAndRenderTracks(); fitAll(); };
-    div.addEventListener('click', e => { if (e.target.tagName !== 'BUTTON') setActiveTrack(t.id); });
-    document.getElementById('tracks').appendChild(div);
+  const m = document.getElementById('sortSelect').value;
+  if (m === 'name') tracks.sort((a,b) => a.name.localeCompare(b.name));
+  else if (m === 'dist') tracks.sort((a,b) => b.data.totalDist - a.data.totalDist);
+  else if (m === 'dplus') tracks.sort((a,b) => b.data.totalDplus - a.data.totalDplus);
+
+  const container = document.getElementById('tracks');
+  container.innerHTML = '';
+  if (!tracks.length) { container.innerHTML = '<div class="empty">Aucun GPX chargé.</div>'; return; }
+
+  tracks.forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'track' + (t.visible ? '' : ' hidden') + (t.id === activeTrackId ? ' active-track' : '');
+    div.innerHTML = `<span class="swatch" style="background:${t.color}"></span><div class="track-main"><div class="track-name">${t.name}</div><div class="track-info">${t.data.totalDist.toFixed(1)} km</div></div><div class="track-actions"><button class="tg">👁️</button><button class="del">✕</button></div>`;
+    div.querySelector('.tg').onclick = (e) => { e.stopPropagation(); t.visible = !t.visible; renderTrackOnMap(t); sortAndRenderTracks(); };
+    div.querySelector('.del').onclick = (e) => { e.stopPropagation(); if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getSource(t.id))map.removeSource(t.id);} tracks = tracks.filter(x => x.id !== t.id); if(activeTrackId === t.id) activeTrackId = tracks[0]?.id || null; if(activeTrackId) setActiveTrack(activeTrackId); sortAndRenderTracks(); fitAll(); };
+    div.onclick = (e) => { if(e.target.tagName !== 'BUTTON') setActiveTrack(t.id); };
+    container.appendChild(div);
   });
 }
 
 function fitAll() {
   if (!map || !tracks.filter(t => t.visible).length) return;
-  const bounds = new maplibregl.LngLatBounds();
-  tracks.filter(t => t.visible).forEach(t => t.data.points.forEach(p => bounds.extend([p.lon, p.lat])));
-  map.fitBounds(bounds, { padding: 40, pitch: is3DMode ? 40 : 0 });
+  const b = new maplibregl.LngLatBounds();
+  tracks.filter(t => t.visible).forEach(t => t.data.points.forEach(p => b.extend([p.lon, p.lat])));
+  map.fitBounds(b, { padding: 40, pitch: is3DMode ? 40 : 0 });
 }
-
 document.getElementById('fitBtn').onclick = fitAll;
-document.getElementById('clearBtn').onclick = () => { tracks.forEach(t => { if (map) { if (map.getLayer(t.id)) map.removeLayer(t.id); if (map.getSource(t.id)) map.removeSource(t.id); } }); tracks = []; activeTrackId = null; sortAndRenderTracks(); drawElevationProfile(); };
+document.getElementById('clearBtn').onclick = () => {
+  tracks.forEach(t => { if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getSource(t.id))map.removeSource(t.id);} });
+  tracks = []; activeTrackId = null; sortAndRenderTracks(); drawElevationProfile();
+};
 
 function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371000, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
-  return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2));
+  const R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+  return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2));
 }
 function calculateBearing(lat1, lon1, lat2, lon2) {
-  if (lat1 === lat2 && lon1 === lon2) return NaN;
-  const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180), x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) - Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  const y = Math.sin((lon2-lon1)*Math.PI/180)*Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos((lon2-lon1)*Math.PI/180);
+  return (Math.atan2(y, x)*180/Math.PI + 360) % 360;
 }
 function setStatus(s) { document.getElementById('status').textContent = s; }
 
