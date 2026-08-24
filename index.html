@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.18</title>
+<title>GPX Compare v3.19</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -100,8 +100,12 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
 #tb-carte .tb-group { display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; padding-top:6px; }
 #tb-carte .tb-group:not(:first-child) { border-top:1px solid var(--border-color); padding-top:8px; }
 @media(max-width:700px){
-  #tb-carte .tb-group { gap:6px; padding-top:4px; }
-  #tb-carte button, #tb-carte select { font-size:12px; padding:6px 9px; }
+  #topbar-tabs { gap:8px; padding:0 8px; }
+  #topbar-tabs h1 { font-size:13px; padding:7px 7px 7px 0; }
+  #appVersion { font-size:9px !important; }
+  .tab-btn { padding:8px 6px; font-size:11px; }
+  #tb-carte .tb-group { gap:5px; padding-top:3px; }
+  #tb-carte button, #tb-carte select { font-size:11px; padding:5px 7px; }
 }
 
 button, .file-label, select, input[type="text"] {
@@ -292,7 +296,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.18</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.19</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -800,15 +804,36 @@ async function startRecording() {
 
   isRecording = true;
   acquireWakeLock();
+  recordIndicator.classList.add('active');
   if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
   drawExportFrame();
 
-  // captureStream(0) = mode manuel : rien n'est capturé tant qu'on n'appelle
-  // pas requestFrame() nous-mêmes. Ça découple la vidéo de la vitesse réelle
-  // de rendu de l'appareil : chaque frame est calculée, on attend que le
-  // relief/les tuiles aient fini de charger, PUIS elle est capturée — quitte
-  // à ce que l'enregistrement prenne plus longtemps que la vidéo elle-même.
-  // Fini les frames à moitié chargées ou sautées en cours de route.
+  currentRatio = 0;
+  if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
+  currentSlope = 0;
+
+  // PHASE 1 (peut être lente, c'est voulu) : on calcule chaque frame et on la
+  // met de côté, en attendant à chaque fois que le relief/les tuiles aient
+  // fini de charger. Rien n'est encore enregistré ici — MediaRecorder cale la
+  // durée de la vidéo sur le temps réel écoulé PENDANT l'enregistrement, donc
+  // tant qu'on n'a pas démarré l'enregistrement, cette phase peut prendre le
+  // temps qu'il faut sans jamais rallonger la vidéo finale.
+  const frameBlobs = [];
+  for (let i = 0; i <= totalFrames && isRecording; i++) {
+    currentRatio = i / totalFrames;
+    setTrackPositionByRatio(currentRatio);
+    await waitForMapSettled(1500);
+    drawExportFrame();
+    const blob = await new Promise(res => exportCanvas.toBlob(res, 'image/jpeg', 0.88));
+    frameBlobs.push(blob);
+    setStatus(`🔄 Calcul de la vidéo… ${Math.round((i / totalFrames) * 100)}%`);
+  }
+  if (!isRecording) { stopRecording(); return; } // annulé pendant le calcul
+
+  // PHASE 2 (rapide, cadence stricte) : on rejoue les frames déjà calculées à
+  // intervalle régulier — c'est CETTE phase, et seulement elle, qui détermine
+  // la durée de la vidéo finale : elle correspond donc bien à la durée
+  // choisie, quel qu'ait été le temps pris par la phase 1.
   const stream = exportCanvas.captureStream(0);
   const videoTrack = stream.getVideoTracks()[0];
   try {
@@ -831,24 +856,18 @@ async function startRecording() {
   };
 
   mediaRecorder.start();
-  recordIndicator.classList.add('active');
 
-  currentRatio = 0;
-  if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
-  currentSlope = 0;
-
-  const minFrameIntervalMs = 1000 / fps;
-  for (let i = 0; i <= totalFrames && isRecording; i++) {
-    const frameStart = performance.now();
-    currentRatio = i / totalFrames;
-    setTrackPositionByRatio(currentRatio);
-    await waitForMapSettled(1500); // attend le relief/les tuiles, plafonné pour ne pas bloquer indéfiniment
-    drawExportFrame();
+  const frameIntervalMs = 1000 / fps;
+  let nextTime = performance.now();
+  for (let i = 0; i < frameBlobs.length && isRecording; i++) {
+    const bmp = await createImageBitmap(frameBlobs[i]);
+    exportCtx.drawImage(bmp, 0, 0, exportCanvas.width, exportCanvas.height);
+    bmp.close();
     videoTrack.requestFrame();
-    const pct = Math.round((i / totalFrames) * 100);
-    setStatus(`🔴 Rendu vidéo… ${pct}%`);
-    const elapsed = performance.now() - frameStart;
-    if (elapsed < minFrameIntervalMs) await new Promise(r => setTimeout(r, minFrameIntervalMs - elapsed));
+    setStatus(`🔴 Assemblage vidéo… ${Math.round(((i + 1) / frameBlobs.length) * 100)}%`);
+    nextTime += frameIntervalMs;
+    const delay = nextTime - performance.now();
+    if (delay > 0) await new Promise(r => setTimeout(r, delay));
   }
 
   stopRecording();
