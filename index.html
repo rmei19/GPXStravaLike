@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.20</title>
+<title>GPX Compare v3.21</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -296,7 +296,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.20</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.21</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -478,6 +478,7 @@ let is3DMode = false, map = null;
 let currentCameraBearing = 0;
 let currentSlope = 0;
 let currentCameraPitch = 0;
+let currentZoomMargin = 0;
 let currentCameraZoom = 14;
 const SMOOTHING_FACTOR = 0.06; // Ajustement de l'amorti anti-vibration
 
@@ -800,7 +801,16 @@ async function startRecording() {
   const fps = quality === 'high' ? 60 : 30;
   const bitrate = quality === 'high' ? 8000000 : 2500000;
   const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
-  const totalFrames = Math.max(1, Math.round(durationSec * fps));
+  // Le nombre de frames UNIQUES calculées (contentFps) est plafonné à 30/s,
+  // même si la vidéo de sortie est en 60fps : décoder deux fois plus de JPEG
+  // par seconde en phase 2 dépasse le budget de 16 ms/frame sur mobile, ce
+  // qui gonflait la durée réelle de la vidéo (1min de sélection -> 1min46 de
+  // rendu). Pour du 60fps, chaque frame calculée est simplement dupliquée
+  // deux fois en phase 2 — imperceptible sur un travelling caméra, et ça
+  // divise par deux le travail de décodage, largement dans le budget.
+  const contentFps = Math.min(fps, 30);
+  const repeatPerFrame = Math.round(fps / contentFps);
+  const totalFrames = Math.max(1, Math.round(durationSec * contentFps));
 
   isRecording = true;
   acquireWakeLock();
@@ -810,7 +820,7 @@ async function startRecording() {
 
   currentRatio = 0;
   if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
-  currentSlope = 0;
+  currentSlope = 0; currentZoomMargin = 0;
 
   // Tout le processus est enveloppé dans un try/finally : si une erreur
   // survient à un moment ou un autre (frame invalide, mémoire...), l'export
@@ -869,17 +879,27 @@ async function startRecording() {
     const frameIntervalMs = 1000 / fps;
     let nextTime = performance.now();
     for (let i = 0; i < frameBlobs.length && isRecording; i++) {
+      let bmp = null;
       try {
-        const bmp = await createImageBitmap(frameBlobs[i]);
+        bmp = await createImageBitmap(frameBlobs[i]);
         exportCtx.drawImage(bmp, 0, 0, exportCanvas.width, exportCanvas.height);
-        bmp.close();
       } catch (e) { console.error('Frame ignorée (échec décodage) :', e); } // on garde la cadence même si une frame est illisible
-      videoTrack.requestFrame();
+      // Chaque frame décodée est répétée (2x en 60fps) pour atteindre la
+      // cadence de sortie sans redécoder — c'est le décodage qui coûtait
+      // cher, pas l'affichage répété d'une image déjà en mémoire.
+      for (let r = 0; r < repeatPerFrame && isRecording; r++) {
+        videoTrack.requestFrame();
+        nextTime += frameIntervalMs;
+        const delay = nextTime - performance.now();
+        if (delay > 0) await new Promise(res => setTimeout(res, delay));
+      }
+      if (bmp) bmp.close();
       setStatus(`🔴 Assemblage vidéo… ${Math.round(((i + 1) / frameBlobs.length) * 100)}%`);
-      nextTime += frameIntervalMs;
-      const delay = nextTime - performance.now();
-      if (delay > 0) await new Promise(r => setTimeout(r, delay));
     }
+    // Laisse l'encodeur digérer la toute dernière frame avant d'arrêter :
+    // stopper trop vite après le dernier requestFrame() pouvait tronquer la
+    // fin de la vidéo.
+    await new Promise(r => setTimeout(r, 300));
   } catch (e) {
     console.error('Export vidéo interrompu par une erreur :', e);
     setStatus('⚠️ Export interrompu (voir console).');
@@ -1170,7 +1190,7 @@ function setActiveTrack(id) {
   currentCameraBearing = map ? map.getBearing() : 0;
   currentCameraZoom = map ? map.getZoom() : 14;
   currentCameraPitch = map ? map.getPitch() : (is3DMode ? 60 : 0);
-  currentSlope = 0;
+  currentSlope = 0; currentZoomMargin = 0;
   document.getElementById('active-track-name').textContent = tr.name;
   document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m`;
   document.getElementById('trimStartSlider').value = tr.trimStart || 0;
@@ -1266,28 +1286,23 @@ function setTrackPositionByRatio(ratio) {
 
       // En pente marquée (montée ou descente), le relief qui se dresse devant
       // la caméra pousse le point vers le haut du cadre, jusqu'à le faire
-      // sortir. Passé 15% de pente, on redresse progressivement la caméra
-      // (pitch réduit = vue plus plongeante) pour garder le point bien visible.
+      // sortir. Le seuil de déclenchement a été abaissé (15% → 8%) et l'effet
+      // combine désormais une caméra plus plongeante ET un léger dézoom : le
+      // dézoom est le levier le plus fiable (il élargit le champ visible dans
+      // toutes les directions, indépendamment de la façon dont MapLibre cale
+      // caméra et relief), le pitch réduit vient en renfort.
       const basePitch = is3DMode ? 60 : 0;
-      let targetPitch = basePitch;
+      let targetPitch = basePitch, targetZoomMargin = 0;
       if (is3DMode) {
         const absSlope = Math.abs(currentSlope);
-        if (absSlope > 15) {
-          const t = Math.min(1, (absSlope - 15) / 25); // réduction max atteinte vers 40% de pente
-          targetPitch = basePitch - t * 30; // jusqu'à 60° -> 30°
-        }
+        const t = Math.min(1, Math.max(0, (absSlope - 8) / 20)); // 0 sous 8%, effet plein dès 28%
+        targetPitch = basePitch - t * 35; // jusqu'à 60° -> 25°
+        targetZoomMargin = t * 1.3; // dézoome jusqu'à ~1.3 niveau
       }
       currentCameraPitch = lerp(currentCameraPitch, targetPitch, SMOOTHING_FACTOR * 2);
+      currentZoomMargin = lerp(currentZoomMargin, targetZoomMargin, SMOOTHING_FACTOR * 2);
 
-      // Marge permanente au-dessus du point en 3D : même une fois les tuiles
-      // chargées, MapLibre peut légèrement désynchroniser le calibrage
-      // caméra/relief sur un terrain vallonné (pas forcément en pente marquée
-      // — observé jusqu'à 0,7% de pente). Plutôt que de réagir après coup, on
-      // décale en permanence le point vers le bas du cadre, ce qui laisse de
-      // la marge pour absorber ce décalage avant qu'il ne sorte de l'écran.
-      const topPadding = is3DMode ? map.getCanvas().clientHeight * 0.22 : 0;
-
-      map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom, pitch: currentCameraPitch, bearing: targetBearing, padding: { top: topPadding, bottom: 0, left: 0, right: 0 } });
+      map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom - currentZoomMargin, pitch: currentCameraPitch, bearing: targetBearing });
     }
   }
 
