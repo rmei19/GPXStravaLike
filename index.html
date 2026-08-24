@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.16</title>
+<title>GPX Compare v3.17</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -124,6 +124,11 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 #main-view { flex:1; display:flex; flex-direction:column; position:relative; height:100%; width:100%; min-width:0 }
 #map-container { flex:1; position:relative; width:100%; min-height:200px }
 
+/* Boutons +/- (et boussole) de MapLibre agrandis : trop petits par défaut
+   pour un usage tactile confortable. On zoome tout le groupe, ancré en haut
+   à droite, plutôt que de retoucher chaque bouton (les icônes restent nettes). */
+.maplibregl-ctrl-top-right { transform: scale(1.35); transform-origin: top right; }
+
 /* Mini-carte 2D (option) */
 #minimap-wrap { position:absolute; bottom:12px; width:150px; height:110px; background:rgba(30,31,35,0.85); border:1px solid rgba(255,255,255,0.25); border-radius:8px; z-index:900; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.4); }
 #minimap-wrap.hidden { display:none }
@@ -177,6 +182,8 @@ body.live-stats-on .live-stat { display:inline }
 .track-info { font-size:11px; color:var(--text-sub); margin-top:2px }
 .track-actions { display:flex; gap:4px }
 .track button { padding:3px 6px; font-size:11px; background:var(--bg-card); color:var(--text-main) }
+/* 👁️ et ✕ agrandis : cibles tactiles plus faciles sur mobile */
+.track-actions button { font-size:17px; min-width:34px; min-height:34px; padding:4px; border-radius:7px; line-height:1 }
 .track.hidden { opacity:.45 }
 
 /* MODE CINÉMA */
@@ -273,7 +280,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.16</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.17</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -812,6 +819,7 @@ function stopRecording() {
   pauseTrack();
   clearInterval(recordInterval);
   isRecording = false;
+  releaseWakeLock();
   recordIndicator.classList.remove('active');
 }
 
@@ -1233,6 +1241,25 @@ async function warmupTiles(tr) {
   }
 }
 
+// Empêche l'écran de se mettre en veille pendant la lecture ou l'export
+// vidéo (sinon Android coupe l'écran en plein milieu d'un enregistrement).
+let wakeLock = null;
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) { /* refusé (onglet en arrière-plan, etc.) — pas bloquant */ }
+}
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+}
+// Le wake lock est automatiquement relâché par le navigateur quand l'onglet
+// perd le focus ; on le redemande au retour si la lecture est toujours en cours.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && (isPlaying || isRecording)) acquireWakeLock();
+});
+
 async function playTrack() {
   if (currentRatio >= 1) currentRatio = 0;
   const tr = tracks.find(t => t.id === activeTrackId);
@@ -1242,12 +1269,14 @@ async function playTrack() {
   // saut de zoom au lancement si tu as zoomé/dézoomé entre-temps.
   if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); }
   isPlaying = true; lastFrameTime = 0;
+  acquireWakeLock();
   document.getElementById('btnPlay').textContent = '⏸'; document.getElementById('btnPlay').classList.add('active');
   document.getElementById('btnCinemaPlay').textContent = '⏸ Pause';
   playAnimationId = requestAnimationFrame(playStep);
 }
 function pauseTrack() {
   isPlaying = false;
+  if (!isRecording) releaseWakeLock();
   document.getElementById('btnPlay').textContent = '▶'; document.getElementById('btnPlay').classList.remove('active');
   document.getElementById('btnCinemaPlay').textContent = '▶ Jouer';
   if (playAnimationId) cancelAnimationFrame(playAnimationId);
