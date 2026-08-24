@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.19</title>
+<title>GPX Compare v3.20</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -296,7 +296,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.19</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.20</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -812,65 +812,80 @@ async function startRecording() {
   if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
   currentSlope = 0;
 
-  // PHASE 1 (peut être lente, c'est voulu) : on calcule chaque frame et on la
-  // met de côté, en attendant à chaque fois que le relief/les tuiles aient
-  // fini de charger. Rien n'est encore enregistré ici — MediaRecorder cale la
-  // durée de la vidéo sur le temps réel écoulé PENDANT l'enregistrement, donc
-  // tant qu'on n'a pas démarré l'enregistrement, cette phase peut prendre le
-  // temps qu'il faut sans jamais rallonger la vidéo finale.
-  const frameBlobs = [];
-  for (let i = 0; i <= totalFrames && isRecording; i++) {
-    currentRatio = i / totalFrames;
-    setTrackPositionByRatio(currentRatio);
-    await waitForMapSettled(1500);
-    drawExportFrame();
-    const blob = await new Promise(res => exportCanvas.toBlob(res, 'image/jpeg', 0.88));
-    frameBlobs.push(blob);
-    setStatus(`🔄 Calcul de la vidéo… ${Math.round((i / totalFrames) * 100)}%`);
-  }
-  if (!isRecording) { stopRecording(); return; } // annulé pendant le calcul
-
-  // PHASE 2 (rapide, cadence stricte) : on rejoue les frames déjà calculées à
-  // intervalle régulier — c'est CETTE phase, et seulement elle, qui détermine
-  // la durée de la vidéo finale : elle correspond donc bien à la durée
-  // choisie, quel qu'ait été le temps pris par la phase 1.
-  const stream = exportCanvas.captureStream(0);
-  const videoTrack = stream.getVideoTracks()[0];
+  // Tout le processus est enveloppé dans un try/finally : si une erreur
+  // survient à un moment ou un autre (frame invalide, mémoire...), l'export
+  // s'arrête proprement et la vidéo déjà enregistrée est quand même
+  // finalisée, au lieu de s'interrompre silencieusement en cours de route
+  // (ce qui produisait des vidéos plus courtes que prévu).
   try {
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: bitrate });
-  } catch(e) {
-    mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
+    // PHASE 1 (peut être lente, c'est voulu) : on calcule chaque frame et on
+    // la met de côté, en attendant à chaque fois que le relief/les tuiles
+    // aient fini de charger. Rien n'est encore enregistré ici — MediaRecorder
+    // cale la durée de la vidéo sur le temps réel écoulé PENDANT
+    // l'enregistrement, donc tant qu'on n'a pas démarré l'enregistrement,
+    // cette phase peut prendre le temps qu'il faut sans jamais rallonger la
+    // vidéo finale.
+    const frameBlobs = [];
+    for (let i = 0; i <= totalFrames && isRecording; i++) {
+      currentRatio = i / totalFrames;
+      setTrackPositionByRatio(currentRatio);
+      await waitForMapSettled(1500);
+      drawExportFrame();
+      let blob = null;
+      try { blob = await new Promise((res, rej) => exportCanvas.toBlob(b => b ? res(b) : rej(new Error('toBlob a renvoyé null')), 'image/jpeg', 0.88)); }
+      catch (e) { console.error('Frame ignorée (échec toBlob) :', e); continue; } // on saute la frame plutôt que de planter tout l'export
+      frameBlobs.push(blob);
+      setStatus(`🔄 Calcul de la vidéo… ${Math.round((i / totalFrames) * 100)}%`);
+    }
+    if (!isRecording || frameBlobs.length === 0) return; // annulé pendant le calcul, ou rien à enregistrer
+
+    // PHASE 2 (rapide, cadence stricte) : on rejoue les frames déjà calculées
+    // à intervalle régulier — c'est CETTE phase, et seulement elle, qui
+    // détermine la durée de la vidéo finale : elle correspond donc bien à la
+    // durée choisie, quel qu'ait été le temps pris par la phase 1.
+    const stream = exportCanvas.captureStream(0);
+    const videoTrack = stream.getVideoTracks()[0];
+    try {
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: bitrate });
+    } catch(e) {
+      mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: bitrate });
+    }
+
+    const chunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus('Export vidéo terminé !');
+    };
+
+    mediaRecorder.start();
+
+    const frameIntervalMs = 1000 / fps;
+    let nextTime = performance.now();
+    for (let i = 0; i < frameBlobs.length && isRecording; i++) {
+      try {
+        const bmp = await createImageBitmap(frameBlobs[i]);
+        exportCtx.drawImage(bmp, 0, 0, exportCanvas.width, exportCanvas.height);
+        bmp.close();
+      } catch (e) { console.error('Frame ignorée (échec décodage) :', e); } // on garde la cadence même si une frame est illisible
+      videoTrack.requestFrame();
+      setStatus(`🔴 Assemblage vidéo… ${Math.round(((i + 1) / frameBlobs.length) * 100)}%`);
+      nextTime += frameIntervalMs;
+      const delay = nextTime - performance.now();
+      if (delay > 0) await new Promise(r => setTimeout(r, delay));
+    }
+  } catch (e) {
+    console.error('Export vidéo interrompu par une erreur :', e);
+    setStatus('⚠️ Export interrompu (voir console).');
+  } finally {
+    stopRecording();
   }
-
-  const chunks = [];
-  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(chunks, { type: 'video/webm' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setStatus('Export vidéo terminé !');
-  };
-
-  mediaRecorder.start();
-
-  const frameIntervalMs = 1000 / fps;
-  let nextTime = performance.now();
-  for (let i = 0; i < frameBlobs.length && isRecording; i++) {
-    const bmp = await createImageBitmap(frameBlobs[i]);
-    exportCtx.drawImage(bmp, 0, 0, exportCanvas.width, exportCanvas.height);
-    bmp.close();
-    videoTrack.requestFrame();
-    setStatus(`🔴 Assemblage vidéo… ${Math.round(((i + 1) / frameBlobs.length) * 100)}%`);
-    nextTime += frameIntervalMs;
-    const delay = nextTime - performance.now();
-    if (delay > 0) await new Promise(r => setTimeout(r, delay));
-  }
-
-  stopRecording();
 }
 
 // Attend que la carte n'ait plus de tuiles en attente (relief, satellite...)
@@ -1264,7 +1279,15 @@ function setTrackPositionByRatio(ratio) {
       }
       currentCameraPitch = lerp(currentCameraPitch, targetPitch, SMOOTHING_FACTOR * 2);
 
-      map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom, pitch: currentCameraPitch, bearing: targetBearing });
+      // Marge permanente au-dessus du point en 3D : même une fois les tuiles
+      // chargées, MapLibre peut légèrement désynchroniser le calibrage
+      // caméra/relief sur un terrain vallonné (pas forcément en pente marquée
+      // — observé jusqu'à 0,7% de pente). Plutôt que de réagir après coup, on
+      // décale en permanence le point vers le bas du cadre, ce qui laisse de
+      // la marge pour absorber ce décalage avant qu'il ne sorte de l'écran.
+      const topPadding = is3DMode ? map.getCanvas().clientHeight * 0.22 : 0;
+
+      map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom, pitch: currentCameraPitch, bearing: targetBearing, padding: { top: topPadding, bottom: 0, left: 0, right: 0 } });
     }
   }
 
@@ -1371,6 +1394,9 @@ function pauseTrack() {
   document.getElementById('btnPlay').textContent = '▶'; document.getElementById('btnPlay').classList.remove('active');
   document.getElementById('btnCinemaPlay').textContent = '▶ Jouer';
   if (playAnimationId) cancelAnimationFrame(playAnimationId);
+  // Retire la marge caméra (ajoutée en 3D pendant la lecture) pour ne pas
+  // fausser un recentrage/zoom manuel une fois la lecture arrêtée.
+  if (map && !isRecording) map.easeTo({ padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 300 });
 }
 document.getElementById('btnPlay').onclick = () => isPlaying ? pauseTrack() : playTrack();
 document.getElementById('btnCinemaPlay').onclick = () => isPlaying ? pauseTrack() : playTrack();
