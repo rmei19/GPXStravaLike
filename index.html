@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.21</title>
+<title>GPX Compare v3.23</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -296,7 +296,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.21</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.23</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -787,6 +787,26 @@ document.getElementById('startExportBtn').addEventListener('click', () => {
 
 document.getElementById('btnStopRecordGlobal').addEventListener('click', stopRecording);
 
+// Mesure combien de temps l'appareil met à décoder un JPEG et le dessiner
+// sur le canvas d'export — c'est cette étape (pas le calcul de la caméra)
+// qui limitait le fps réellement tenable en phase 2 de l'export.
+async function benchmarkDecodeCost() {
+  try {
+    const blob = await new Promise(res => exportCanvas.toBlob(res, 'image/jpeg', 0.88));
+    if (!blob) return Infinity;
+    const trials = 3;
+    let total = 0;
+    for (let i = 0; i < trials; i++) {
+      const t0 = performance.now();
+      const bmp = await createImageBitmap(blob);
+      exportCtx.drawImage(bmp, 0, 0, exportCanvas.width, exportCanvas.height);
+      bmp.close();
+      total += performance.now() - t0;
+    }
+    return total / trials;
+  } catch (e) { return Infinity; } // en cas de doute, on part du principe que c'est lent (repli sûr)
+}
+
 async function startRecording() {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr || !map) return;
@@ -798,25 +818,30 @@ async function startRecording() {
   if (is3DMode) { setStatus('🔄 Préchargement des tuiles avant enregistrement...'); await warmupTiles(activeTr); }
 
   const quality = document.querySelector('input[name="exportQuality"]:checked').value;
-  const fps = quality === 'high' ? 60 : 30;
+  const outputFps = quality === 'high' ? 60 : 30; // fps du fichier vidéo final, choisi par l'utilisateur
   const bitrate = quality === 'high' ? 8000000 : 2500000;
   const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
-  // Le nombre de frames UNIQUES calculées (contentFps) est plafonné à 30/s,
-  // même si la vidéo de sortie est en 60fps : décoder deux fois plus de JPEG
-  // par seconde en phase 2 dépasse le budget de 16 ms/frame sur mobile, ce
-  // qui gonflait la durée réelle de la vidéo (1min de sélection -> 1min46 de
-  // rendu). Pour du 60fps, chaque frame calculée est simplement dupliquée
-  // deux fois en phase 2 — imperceptible sur un travelling caméra, et ça
-  // divise par deux le travail de décodage, largement dans le budget.
-  const contentFps = Math.min(fps, 30);
-  const repeatPerFrame = Math.round(fps / contentFps);
-  const totalFrames = Math.max(1, Math.round(durationSec * contentFps));
 
   isRecording = true;
   acquireWakeLock();
   recordIndicator.classList.add('active');
   if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
   drawExportFrame();
+
+  // Le nombre de frames UNIQUES réellement calculées (contentFps) dépend de
+  // la vitesse de décodage JPEG de l'appareil, mesurée ici plutôt que
+  // supposée : un ordinateur tient généralement du vrai 60fps (60 positions
+  // de caméra distinctes par seconde), un mobile souvent pas — décoder plus
+  // vite que son budget de 16 ms/frame gonflait la durée réelle de la vidéo
+  // (1min de sélection -> 1min46 de rendu). Si l'appareil est trop lent pour
+  // le fps choisi, chaque frame calculée est dupliquée en phase 2 pour
+  // atteindre quand même le fps de sortie — sans re-décoder, donc sans coût.
+  setStatus('🔍 Test de performance de l\'appareil...');
+  const avgDecodeMs = await benchmarkDecodeCost();
+  const budgetMs = (1000 / outputFps) * 0.55; // marge pour le reste du travail par frame (calcul position, requestFrame...)
+  const contentFps = avgDecodeMs <= budgetMs ? outputFps : Math.min(outputFps, 30);
+  const repeatPerFrame = Math.round(outputFps / contentFps);
+  const totalFrames = Math.max(1, Math.round(durationSec * contentFps));
 
   currentRatio = 0;
   if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
@@ -876,7 +901,7 @@ async function startRecording() {
 
     mediaRecorder.start();
 
-    const frameIntervalMs = 1000 / fps;
+    const frameIntervalMs = 1000 / outputFps;
     let nextTime = performance.now();
     for (let i = 0; i < frameBlobs.length && isRecording; i++) {
       let bmp = null;
@@ -1280,8 +1305,13 @@ function setTrackPositionByRatio(ratio) {
         }
       }
       
-      // Amorti du zoom / altitude de la caméra pour éviter les sauts brusques
-      let targetZoom = map.getZoom();
+      // Amorti du zoom / altitude de la caméra pour éviter les sauts brusques.
+      // On retire de la lecture la marge de dézoom qu'on avait appliquée à la
+      // frame précédente (currentZoomMargin) : sinon ce dézoom de secours se
+      // relit lui-même comme "le vrai zoom" et s'accumule sans fin tout du
+      // long d'une pente soutenue, au lieu de rester plafonné à ~1,3 niveau
+      // (c'était le dézoom exagéré observé sur les longues descentes).
+      let targetZoom = map.getZoom() + currentZoomMargin;
       currentCameraZoom = lerp(currentCameraZoom, targetZoom, SMOOTHING_FACTOR);
 
       // En pente marquée (montée ou descente), le relief qui se dresse devant
@@ -1297,7 +1327,7 @@ function setTrackPositionByRatio(ratio) {
         const absSlope = Math.abs(currentSlope);
         const t = Math.min(1, Math.max(0, (absSlope - 8) / 20)); // 0 sous 8%, effet plein dès 28%
         targetPitch = basePitch - t * 35; // jusqu'à 60° -> 25°
-        targetZoomMargin = t * 1.3; // dézoome jusqu'à ~1.3 niveau
+        targetZoomMargin = t * 1.3; // dézoome jusqu'à ~1.3 niveau, jamais plus
       }
       currentCameraPitch = lerp(currentCameraPitch, targetPitch, SMOOTHING_FACTOR * 2);
       currentZoomMargin = lerp(currentZoomMargin, targetZoomMargin, SMOOTHING_FACTOR * 2);
