@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.23</title>
+<title>GPX Compare v3.24</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -223,9 +223,13 @@ body.cinema-mode #cinema-overlay { display: flex; }
 #cinema-stats { color: white; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 130px; text-align: center; }
 
 /* Badge D+/Pente en mode Cinéma : coin opposé à la mini-carte pour ne pas se
-   chevaucher avec elle (les deux étaient plaqués en bas-gauche par défaut). */
-#cinema-live-stats { display:none; position:absolute; bottom:12px; background:rgba(30,31,35,0.85); color:#fff; font-size:13px; font-weight:600; padding:8px 14px; border-radius:20px; z-index:1000; border:1px solid rgba(255,255,255,0.2); font-variant-numeric:tabular-nums; }
-body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
+   chevaucher avec elle (les deux étaient plaqués en bas-gauche par défaut).
+   Grille 2x2 compacte plutôt qu'une ligne unique : sur un export portrait
+   étroit, une ligne "8.4 km · 1:23:36 · 271 m · +3.6%" déborde largement de
+   son coin et finit par recouvrir la mini-carte quand même — justement là où
+   le point de fin se trouve souvent (proche du départ). */
+#cinema-live-stats { display:none; position:absolute; bottom:12px; background:rgba(30,31,35,0.85); color:#fff; font-size:12px; font-weight:600; padding:6px 10px; border-radius:10px; z-index:1000; border:1px solid rgba(255,255,255,0.2); font-variant-numeric:tabular-nums; grid-template-columns:1fr 1fr; gap:2px 10px; max-width:150px; }
+body.cinema-mode #cinema-live-stats:not(.hidden) { display:grid; }
 #cinema-live-stats.corner-left { left:12px }
 #cinema-live-stats.corner-right { right:12px }
 
@@ -296,7 +300,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.23</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.24</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -357,7 +361,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span> · <span id="c-temps2">--:--</span> · <span id="c-dplus2">0 m</span> · <span id="c-pente2">--%</span></div>
+      <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
         <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span></div>
@@ -751,12 +755,23 @@ function drawExportFrame() {
   }
 
   if (showLiveStats) {
-    const text = `${document.getElementById('stDist').textContent}   ${document.getElementById('stTemps').textContent}   D+ ${document.getElementById('stDplus').textContent}   Pente ${document.getElementById('stPente').textContent}`;
+    // Grille 2x2 compacte (comme le badge à l'écran) plutôt qu'une ligne
+    // large : sur un export portrait étroit, une ligne "8.4 km · 1:23:36 ·
+    // 271 m · +3.6%" déborde de son coin et finit par recouvrir la
+    // mini-carte quand même — justement là où le point de fin se trouve
+    // souvent (proche du départ), le cachant complètement.
+    const cells = [
+      document.getElementById('stDist').textContent, document.getElementById('stTemps').textContent,
+      document.getElementById('stDplus').textContent, document.getElementById('stPente').textContent
+    ];
     exportCtx.save();
-    exportCtx.font = `${15 * dpr}px -apple-system, sans-serif`;
+    const fontSize = 13 * dpr;
+    exportCtx.font = `600 ${fontSize}px -apple-system, sans-serif`;
     exportCtx.textBaseline = 'middle';
-    const padX = 12 * dpr, boxH = 30 * dpr, margin = 12 * dpr;
-    const boxW = exportCtx.measureText(text).width + padX * 2;
+    const padX = 10 * dpr, padY = 6 * dpr, colGap = 10 * dpr, rowH = fontSize + 4 * dpr, margin = 12 * dpr;
+    const colW = Math.max(exportCtx.measureText(cells[0]).width, exportCtx.measureText(cells[2]).width, exportCtx.measureText(cells[1]).width, exportCtx.measureText(cells[3]).width);
+    const boxW = padX * 2 + colW * 2 + colGap;
+    const boxH = padY * 2 + rowH * 2;
     // Coin opposé à la mini-carte pour ne pas se chevaucher (comme à l'écran)
     const oppositeCorner = minimapPos === 'left' ? 'right' : 'left';
     const bx = oppositeCorner === 'left' ? margin : exportCanvas.width - boxW - margin;
@@ -764,7 +779,10 @@ function drawExportFrame() {
     exportCtx.fillStyle = 'rgba(20,20,20,0.75)';
     roundRectPath(exportCtx, bx, by, boxW, boxH, 8 * dpr); exportCtx.fill();
     exportCtx.fillStyle = '#fff'; exportCtx.textAlign = 'left';
-    exportCtx.fillText(text, bx + padX, by + boxH / 2);
+    exportCtx.fillText(cells[0], bx + padX, by + padY + rowH / 2);
+    exportCtx.fillText(cells[1], bx + padX + colW + colGap, by + padY + rowH / 2);
+    exportCtx.fillText(cells[2], bx + padX, by + padY + rowH + rowH / 2);
+    exportCtx.fillText(cells[3], bx + padX + colW + colGap, by + padY + rowH + rowH / 2);
     exportCtx.restore();
   }
 }
