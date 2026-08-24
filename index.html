@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.17</title>
+<title>GPX Compare v3.18</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -90,6 +90,18 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
 
 .tb-panel.active {
   display: flex;
+}
+
+/* Regroupe visuellement les boutons de l'onglet Carte & 3D par fonction
+   (fond/thème, vue caméra, options de lecture) au lieu d'un unique fouillis
+   de boutons — chaque groupe force sa propre ligne et se distingue par un
+   léger séparateur, surtout utile en largeur réduite (mobile). */
+#tb-carte { flex-direction: column; align-items: stretch; }
+#tb-carte .tb-group { display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; padding-top:6px; }
+#tb-carte .tb-group:not(:first-child) { border-top:1px solid var(--border-color); padding-top:8px; }
+@media(max-width:700px){
+  #tb-carte .tb-group { gap:6px; padding-top:4px; }
+  #tb-carte button, #tb-carte select { font-size:12px; padding:6px 9px; }
 }
 
 button, .file-label, select, input[type="text"] {
@@ -280,7 +292,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.17</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.18</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -293,26 +305,32 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
   </div>
 
   <div id="tb-carte" class="tb-panel">
-    <select id="mapStyleSelect">
-      <option value="osm" selected>🗺️ OpenStreetMap</option>
-      <option value="outdoor-v2">🌲 MapTiler Rando</option>
-      <option value="satellite">🛰️ MapTiler Satellite</option>
-      <option value="topo-v2">⛰️ MapTiler Topo</option>
-    </select>
-    <button id="btn3D">📐 3D</button>
-    <button id="fitBtn">🎯 Recentrer</button>
-    <button id="btnFullscreen">⛶ Plein écran</button>
-    <button id="btnLiveStats">📈 Pente/D+ en direct</button>
-    <select id="minimapPosSelect">
-      <option value="off" selected>🗺️ Mini-carte : désactivée</option>
-      <option value="left">🗺️ Mini-carte : bas-gauche</option>
-      <option value="right">🗺️ Mini-carte : bas-droite</option>
-    </select>
-    <select id="themeSelect">
-      <option value="system" selected>💻 Système</option>
-      <option value="dark">🌙 Sombre</option>
-      <option value="light">☀️ Clair</option>
-    </select>
+    <div class="tb-group">
+      <select id="mapStyleSelect">
+        <option value="osm" selected>🗺️ OpenStreetMap</option>
+        <option value="outdoor-v2">🌲 MapTiler Rando</option>
+        <option value="satellite">🛰️ MapTiler Satellite</option>
+        <option value="topo-v2">⛰️ MapTiler Topo</option>
+      </select>
+      <select id="themeSelect">
+        <option value="system" selected>💻 Système</option>
+        <option value="dark">🌙 Sombre</option>
+        <option value="light">☀️ Clair</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <button id="btn3D">📐 3D</button>
+      <button id="fitBtn">🎯 Recentrer</button>
+      <button id="btnFullscreen">⛶ Plein écran</button>
+    </div>
+    <div class="tb-group">
+      <button id="btnLiveStats">📊 Infos sortie</button>
+      <select id="minimapPosSelect">
+        <option value="off" selected>🗺️ Mini-carte : désactivée</option>
+        <option value="left">🗺️ Mini-carte : bas-gauche</option>
+        <option value="right">🗺️ Mini-carte : bas-droite</option>
+      </select>
+    </div>
   </div>
 
   <div id="tb-export" class="tb-panel">
@@ -335,7 +353,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-live-stats" class="hidden"><span id="c-dplus2">0 m</span> · <span id="c-pente2">--%</span></div>
+      <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span> · <span id="c-temps2">--:--</span> · <span id="c-dplus2">0 m</span> · <span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
         <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span></div>
@@ -379,6 +397,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:block; }
         <div id="tracker-stats-bar">
           <span>Dist: <b id="stDist">0.0 km</b></span>
           <span>Alt: <b id="stAlt">-- m</b></span>
+          <span class="live-stat">Temps: <b id="stTemps">--:--</b></span>
           <span class="live-stat">D+: <b id="stDplus">0 m</b></span>
           <span class="live-stat">Pente: <b id="stPente">--%</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
@@ -489,8 +508,6 @@ function initMap() {
       return { url };
     }
   });
-
-  map.on('render', drawExportFrame);
   map.on('style.load', () => {
     // On restaure d'abord les traces GPX et le curseur : même si l'étape 3D
     // plante plus bas (style sans couche bâtiment exploitable), les traces
@@ -694,7 +711,7 @@ btnCinemaExit.addEventListener('click', () => toggleCinemaMode(false));
 
 const exportModal = document.getElementById('exportModal');
 const recordIndicator = document.getElementById('record-indicator');
-let isRecording = false, mediaRecorder = null, recordInterval = null;
+let isRecording = false, mediaRecorder = null;
 let exportCanvas = null, exportCtx = null;
 
 function roundRectPath(ctx, x, y, w, h, r) {
@@ -729,7 +746,7 @@ function drawExportFrame() {
   }
 
   if (showLiveStats) {
-    const text = `D+ ${document.getElementById('stDplus').textContent}   Pente ${document.getElementById('stPente').textContent}`;
+    const text = `${document.getElementById('stDist').textContent}   ${document.getElementById('stTemps').textContent}   D+ ${document.getElementById('stDplus').textContent}   Pente ${document.getElementById('stPente').textContent}`;
     exportCtx.save();
     exportCtx.font = `${15 * dpr}px -apple-system, sans-serif`;
     exportCtx.textBaseline = 'middle';
@@ -776,13 +793,24 @@ async function startRecording() {
   if (is3DMode) { setStatus('🔄 Préchargement des tuiles avant enregistrement...'); await warmupTiles(activeTr); }
 
   const quality = document.querySelector('input[name="exportQuality"]:checked').value;
-  let fps = quality === 'high' ? 60 : 30;
-  let bitrate = quality === 'high' ? 8000000 : 2500000;
+  const fps = quality === 'high' ? 60 : 30;
+  const bitrate = quality === 'high' ? 8000000 : 2500000;
+  const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
+  const totalFrames = Math.max(1, Math.round(durationSec * fps));
 
-  isRecording = true; // avant le premier drawExportFrame() pour qu'il ne soit pas ignoré
+  isRecording = true;
+  acquireWakeLock();
   if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
   drawExportFrame();
-  const stream = exportCanvas.captureStream(fps);
+
+  // captureStream(0) = mode manuel : rien n'est capturé tant qu'on n'appelle
+  // pas requestFrame() nous-mêmes. Ça découple la vidéo de la vitesse réelle
+  // de rendu de l'appareil : chaque frame est calculée, on attend que le
+  // relief/les tuiles aient fini de charger, PUIS elle est capturée — quitte
+  // à ce que l'enregistrement prenne plus longtemps que la vidéo elle-même.
+  // Fini les frames à moitié chargées ou sautées en cours de route.
+  const stream = exportCanvas.captureStream(0);
+  const videoTrack = stream.getVideoTracks()[0];
   try {
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9', videoBitsPerSecond: bitrate });
   } catch(e) {
@@ -804,20 +832,50 @@ async function startRecording() {
 
   mediaRecorder.start();
   recordIndicator.classList.add('active');
-  setStatus('🔴 Enregistrement...');
 
   currentRatio = 0;
-  playTrack();
+  if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
+  currentSlope = 0;
 
-  recordInterval = setInterval(() => {
-    if (currentRatio >= 1 && mediaRecorder.state === 'recording') stopRecording();
-  }, 500);
+  const minFrameIntervalMs = 1000 / fps;
+  for (let i = 0; i <= totalFrames && isRecording; i++) {
+    const frameStart = performance.now();
+    currentRatio = i / totalFrames;
+    setTrackPositionByRatio(currentRatio);
+    await waitForMapSettled(1500); // attend le relief/les tuiles, plafonné pour ne pas bloquer indéfiniment
+    drawExportFrame();
+    videoTrack.requestFrame();
+    const pct = Math.round((i / totalFrames) * 100);
+    setStatus(`🔴 Rendu vidéo… ${pct}%`);
+    const elapsed = performance.now() - frameStart;
+    if (elapsed < minFrameIntervalMs) await new Promise(r => setTimeout(r, minFrameIntervalMs - elapsed));
+  }
+
+  stopRecording();
+}
+
+// Attend que la carte n'ait plus de tuiles en attente (relief, satellite...)
+// avant de considérer une frame "prête", plafonné à maxWaitMs pour ne jamais
+// bloquer indéfiniment si une tuile ne charge pas. Si rien n'a besoin de
+// charger (cas le plus fréquent grâce au préchargement), on ne perd quasi
+// aucun temps : sans ce court-circuit, chaque frame attendrait bêtement le
+// délai max même à vide (900 frames × 1,5s = 20+ minutes pour rien).
+function waitForMapSettled(maxWaitMs) {
+  if (!map) return Promise.resolve();
+  return new Promise(resolve => {
+    requestAnimationFrame(() => { // laisse jumpTo() déclencher ses requêtes de tuiles avant de vérifier
+      if (map.loaded()) { resolve(); return; }
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      map.once('idle', finish);
+      setTimeout(finish, maxWaitMs);
+    });
+  });
 }
 
 function stopRecording() {
   if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
   pauseTrack();
-  clearInterval(recordInterval);
   isRecording = false;
   releaseWakeLock();
   recordIndicator.classList.remove('active');
@@ -982,7 +1040,7 @@ function calculateTrackData(points) {
         else if (diff <= -ELE_THRESHOLD) { lastEle = pt.ele; }
       } else { lastEle = pt.ele; }
     }
-    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, fraction: (hasTime && totalT > 0) ? (pt.time - startT)/totalT : cumDist });
+    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, elapsedSec: hasTime ? (pt.time - startT) / 1000 : null, fraction: (hasTime && totalT > 0) ? (pt.time - startT)/totalT : cumDist });
   });
   if (!hasTime && cumDist > 0) trackPts.forEach(p => p.fraction /= cumDist);
   return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, minEle: hasEle ? minEle : 0, maxEle: hasEle ? maxEle : 0, hasElevation: hasEle };
@@ -1013,7 +1071,13 @@ function applyTrim(t) {
   }
   if (t.id === activeTrackId) {
     document.getElementById('active-track-stats').textContent = `${t.data.totalDist.toFixed(1)} km · +${Math.round(t.data.totalDplus)}m`;
-    currentRatio = 0; drawMinimapRoute(); setTrackPositionByRatio(0);
+    currentRatio = 0;
+    // Resynchronise la caméra sur l'état réel de la carte avant de la
+    // recentrer : sinon, tant que la sortie n'a jamais été jouée une fois
+    // (playTrack ne l'a donc jamais fait), ces variables gardent le zoom
+    // d'AVANT le premier fitAll() et le rognage semble "dézoomer" la carte.
+    if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
+    drawMinimapRoute(); setTrackPositionByRatio(0);
   } else {
     sortAndRenderTracks();
   }
@@ -1193,8 +1257,16 @@ function setTrackPositionByRatio(ratio) {
   if (showLiveStats) {
     const dplusTxt = Math.round(dplus) + ' m';
     const penteTxt = (currentSlope >= 0 ? '+' : '') + currentSlope.toFixed(1) + '%';
+    const distTxt = dist.toFixed(1) + ' km';
+    let tempsTxt = '--:--';
+    if (p1.elapsedSec !== null && p2.elapsedSec !== null) {
+      const elapsed = p1.elapsedSec + (p2.elapsedSec - p1.elapsedSec) * f;
+      tempsTxt = formatDuration(elapsed);
+    }
     document.getElementById('stDplus').textContent = dplusTxt; document.getElementById('c-dplus2').textContent = dplusTxt;
     document.getElementById('stPente').textContent = penteTxt; document.getElementById('c-pente2').textContent = penteTxt;
+    document.getElementById('stTemps').textContent = tempsTxt; document.getElementById('c-temps2').textContent = tempsTxt;
+    document.getElementById('c-dist2').textContent = distTxt;
   }
 
   redrawMinimap();
@@ -1340,6 +1412,11 @@ function getLookaheadBearing(pts, idx, curDistKm) {
   const a = pts[idx], b = pts[j];
   if (!a || !b || a === b) return NaN;
   return calculateBearing(a.lat, a.lon, b.lat, b.lon);
+}
+function formatDuration(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
 }
 function calculateBearing(lat1, lon1, lat2, lon2) {
   const y = Math.sin((lon2-lon1)*Math.PI/180)*Math.cos(lat2*Math.PI/180);
