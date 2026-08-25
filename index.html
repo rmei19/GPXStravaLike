@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.24</title>
+<title>GPX Compare v3.26</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -166,13 +166,17 @@ body.live-stats-on .live-stat { display:inline }
 #canvas-wrap { position:relative; width:100%; height:100px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:6px; cursor:crosshair; touch-action:none }
 #elevationCanvas { width:100%; height:100%; display:block }
 #tracker-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; background:var(--bg-card); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color) }
-#trim-controls { display:flex; align-items:center; gap:6px; width:100%; font-size:11px; color:var(--text-sub) }
+#trim-controls { display:flex; flex-direction:column; gap:8px; width:100%; font-size:12px; color:var(--text-sub); background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:10px; }
 #trim-controls.hidden { display:none }
-#trim-controls input[type="range"] { flex:1; max-width:110px }
+.trim-row { display:flex; align-items:center; gap:8px; width:100% }
+/* Curseur plus haut et plus facile à viser au doigt (c'était trop fin/sensible) */
+#trim-controls input[type="range"] { flex:1; height:28px; accent-color:var(--accent); touch-action:pan-y; }
+.trim-value { font-weight:700; min-width:34px; text-align:right; color:var(--text-main); font-variant-numeric:tabular-nums; }
+#btnTrimReset { font-size:11px; padding:4px 10px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-panel); color:var(--text-main); cursor:pointer; margin-left:auto; }
 #btnTrimToggle { font-size:11px; padding:3px 8px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-main); cursor:pointer }
 #btnTrimToggle.active { background:var(--accent); color:#fff; border-color:var(--accent) }
 .trim-label { white-space:nowrap; flex-shrink:0 }
-#trimInfo { margin-left:auto; font-weight:600 }
+#trimInfo { font-weight:600 }
 .control-group { display:flex; align-items:center; gap:4px }
 .control-group button { padding:5px 8px; font-size:12px; background:var(--bg-panel); color:var(--text-main) }
 .control-group button.active { background:var(--accent); color:#fff }
@@ -232,6 +236,12 @@ body.cinema-mode #cinema-overlay { display: flex; }
 body.cinema-mode #cinema-live-stats:not(.hidden) { display:grid; }
 #cinema-live-stats.corner-left { left:12px }
 #cinema-live-stats.corner-right { right:12px }
+
+/* Nom + version, discret, visible même en mode Cinéma (où la barre du haut
+   habituelle est masquée) — pour savoir de quelle version vient une vidéo
+   exportée quand on la revoit plus tard. */
+#cinema-watermark { display:none; position:absolute; top:8px; left:8px; font-size:10px; color:rgba(255,255,255,0.55); background:rgba(0,0,0,0.35); padding:2px 7px; border-radius:5px; z-index:1000; pointer-events:none; }
+body.cinema-mode #cinema-watermark { display:block; }
 
 /* Indicateur enregistrement */
 #record-indicator {
@@ -300,7 +310,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:grid; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.24</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.26</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -361,6 +371,7 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:grid; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
+      <div id="cinema-watermark">GPX Compare v3.26</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -381,11 +392,20 @@ body.cinema-mode #cinema-live-stats:not(.hidden) { display:grid; }
           <button id="btnTrimToggle" title="Rogner le début/la fin de la trace">✂️ Rogner</button>
         </div>
         <div id="trim-controls" class="hidden">
-          <span class="trim-label">Début</span>
-          <input type="range" id="trimStartSlider" min="0" max="40" value="0" step="1">
-          <span class="trim-label">Fin</span>
-          <input type="range" id="trimEndSlider" min="0" max="40" value="0" step="1">
-          <span id="trimInfo" class="trim-label"></span>
+          <div class="trim-row">
+            <span class="trim-label">Début</span>
+            <input type="range" id="trimStartSlider" min="0" max="40" value="0" step="1">
+            <span class="trim-value" id="trimStartValue">0%</span>
+          </div>
+          <div class="trim-row">
+            <span class="trim-label">Fin</span>
+            <input type="range" id="trimEndSlider" min="0" max="40" value="0" step="1">
+            <span class="trim-value" id="trimEndValue">0%</span>
+          </div>
+          <div class="trim-row">
+            <span id="trimInfo" class="trim-label"></span>
+            <button id="btnTrimReset">↺ Réinitialiser</button>
+          </div>
         </div>
         <input type="range" id="trackSlider" min="0" max="1" value="0" step="0.001" disabled>
         <div class="control-group">
@@ -479,6 +499,7 @@ document.getElementById('saveKeyBtn').addEventListener('click', () => {
 // Carte & Amortisseurs de Caméra (Lerp)
 const ELE_THRESHOLD = 1.5;
 let is3DMode = false, map = null;
+document.getElementById('cinema-watermark').textContent = 'GPX Compare ' + document.getElementById('appVersion').textContent;
 let currentCameraBearing = 0;
 let currentSlope = 0;
 let currentCameraPitch = 0;
@@ -742,6 +763,19 @@ function drawExportFrame() {
 
   const dpr = window.devicePixelRatio || 1;
 
+  // Filigrane nom + version, discret, pour identifier la version qui a
+  // produit cette vidéo si on la revoit plus tard.
+  exportCtx.save();
+  exportCtx.font = `${10 * dpr}px -apple-system, sans-serif`;
+  exportCtx.fillStyle = 'rgba(0,0,0,0.35)';
+  const wmText = document.getElementById('cinema-watermark').textContent;
+  const wmPad = 5 * dpr;
+  const wmW = exportCtx.measureText(wmText).width + wmPad * 2;
+  roundRectPath(exportCtx, 8 * dpr, 8 * dpr, wmW, 16 * dpr, 4 * dpr); exportCtx.fill();
+  exportCtx.fillStyle = 'rgba(255,255,255,0.65)'; exportCtx.textBaseline = 'middle'; exportCtx.textAlign = 'left';
+  exportCtx.fillText(wmText, 8 * dpr + wmPad, 8 * dpr + 8 * dpr);
+  exportCtx.restore();
+
   if (minimapPos !== 'off') {
     const w = 150 * dpr, h = 110 * dpr, margin = 12 * dpr;
     const x = minimapPos === 'left' ? margin : exportCanvas.width - w - margin;
@@ -825,6 +859,15 @@ async function benchmarkDecodeCost() {
   } catch (e) { return Infinity; } // en cas de doute, on part du principe que c'est lent (repli sûr)
 }
 
+// Encode la frame courante en JPEG, avec gestion d'échec (peut arriver sous
+// pression mémoire, notamment sur mobile avec un grand canvas).
+function captureFrameBlob() {
+  return new Promise(res => {
+    try { exportCanvas.toBlob(b => res(b || null), 'image/jpeg', 0.8); }
+    catch (e) { res(null); }
+  });
+}
+
 async function startRecording() {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr || !map) return;
@@ -879,17 +922,19 @@ async function startRecording() {
     // cette phase peut prendre le temps qu'il faut sans jamais rallonger la
     // vidéo finale.
     const frameBlobs = [];
+    let skippedCount = 0;
     for (let i = 0; i <= totalFrames && isRecording; i++) {
       currentRatio = i / totalFrames;
       setTrackPositionByRatio(currentRatio);
-      await waitForMapSettled(1500);
+      await waitForMapSettled(2000);
       drawExportFrame();
-      let blob = null;
-      try { blob = await new Promise((res, rej) => exportCanvas.toBlob(b => b ? res(b) : rej(new Error('toBlob a renvoyé null')), 'image/jpeg', 0.88)); }
-      catch (e) { console.error('Frame ignorée (échec toBlob) :', e); continue; } // on saute la frame plutôt que de planter tout l'export
+      let blob = await captureFrameBlob();
+      if (!blob) { blob = await captureFrameBlob(); } // une nouvelle tentative avant d'abandonner la frame
+      if (!blob) { skippedCount++; console.error(`Frame ${i}/${totalFrames} ignorée (toBlob a échoué deux fois)`); continue; }
       frameBlobs.push(blob);
       setStatus(`🔄 Calcul de la vidéo… ${Math.round((i / totalFrames) * 100)}%`);
     }
+    if (skippedCount > 0) console.warn(`Export : ${skippedCount} frame(s) ignorée(s) sur ${totalFrames + 1} calculées (${frameBlobs.length} conservées).`);
     if (!isRecording || frameBlobs.length === 0) return; // annulé pendant le calcul, ou rien à enregistrer
 
     // PHASE 2 (rapide, cadence stricte) : on rejoue les frames déjà calculées
@@ -914,7 +959,7 @@ async function startRecording() {
       a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
       a.click();
       URL.revokeObjectURL(url);
-      setStatus('Export vidéo terminé !');
+      setStatus(skippedCount > 0 ? `Export terminé (${skippedCount} frame(s) ignorée(s) sur ${totalFrames + 1})` : 'Export vidéo terminé !');
     };
 
     mediaRecorder.start();
@@ -1188,6 +1233,8 @@ function updateTrimInfo(t) {
 
 const trimStartSlider = document.getElementById('trimStartSlider');
 const trimEndSlider = document.getElementById('trimEndSlider');
+const trimStartValue = document.getElementById('trimStartValue');
+const trimEndValue = document.getElementById('trimEndValue');
 function onTrimChange(e) {
   const tr = tracks.find(t => t.id === activeTrackId); if (!tr) return;
   let s = parseInt(trimStartSlider.value, 10), en = parseInt(trimEndSlider.value, 10);
@@ -1195,12 +1242,22 @@ function onTrimChange(e) {
     if (e.target === trimStartSlider) en = Math.max(0, 90 - s); else s = Math.max(0, 90 - en);
     trimStartSlider.value = s; trimEndSlider.value = en;
   }
+  trimStartValue.textContent = s + '%'; trimEndValue.textContent = en + '%';
   tr.trimStart = s; tr.trimEnd = en;
   applyTrim(tr);
   updateTrimInfo(tr);
 }
 trimStartSlider.addEventListener('input', onTrimChange);
 trimEndSlider.addEventListener('input', onTrimChange);
+
+document.getElementById('btnTrimReset').addEventListener('click', () => {
+  const tr = tracks.find(t => t.id === activeTrackId); if (!tr) return;
+  trimStartSlider.value = 0; trimEndSlider.value = 0;
+  trimStartValue.textContent = '0%'; trimEndValue.textContent = '0%';
+  tr.trimStart = 0; tr.trimEnd = 0;
+  applyTrim(tr);
+  updateTrimInfo(tr);
+});
 
 const btnTrimToggle = document.getElementById('btnTrimToggle');
 const trimControlsPanel = document.getElementById('trim-controls');
@@ -1238,6 +1295,8 @@ function setActiveTrack(id) {
   document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m`;
   document.getElementById('trimStartSlider').value = tr.trimStart || 0;
   document.getElementById('trimEndSlider').value = tr.trimEnd || 0;
+  document.getElementById('trimStartValue').textContent = (tr.trimStart || 0) + '%';
+  document.getElementById('trimEndValue').textContent = (tr.trimEnd || 0) + '%';
   updateTrimInfo(tr);
   sortAndRenderTracks(); drawElevationProfile(); drawMinimapRoute(); setTrackPositionByRatio(0);
 }
