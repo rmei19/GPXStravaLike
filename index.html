@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.32</title>
+<title>GPX Compare v3.33</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -316,7 +316,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.32</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.33</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -383,7 +383,7 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.32</div>
+      <div id="cinema-watermark">GPX Compare v3.33</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -563,6 +563,12 @@ function initMap() {
     } catch (err) {
       console.error('Rendu 3D (terrain/bâtiments) indisponible sur ce fond de carte :', err);
     }
+    // Filet de sécurité : une fois le style totalement stabilisé (toutes les
+    // tuiles/couches internes chargées), on repasse une fois sur les traces.
+    // Sans ça, sur certains changements de fond de carte, la trace pouvait
+    // rester invisible tant qu'on n'ouvrait/fermait pas manuellement l'œil
+    // dans le panneau Sorties.
+    map.once('idle', () => { restoreTracksOnMap(); initTrackerLayer(); });
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
 }
@@ -1301,8 +1307,14 @@ function renderTrackOnMap(t) {
     map.addSource(t.id, { 'type': 'geojson', 'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': t.data.points.map(p => [p.lon, p.lat]) } } });
     // Couche invisible plus large sous la ligne visible : zone de clic plus
     // confortable (5px de ligne, c'est très étroit à viser à la souris/au doigt).
-    map.addLayer({ 'id': t.id + '-hit', 'type': 'line', 'source': t.id, 'paint': { 'line-color': '#000', 'line-width': 20, 'line-opacity': 0.01 } });
-    map.addLayer({ 'id': t.id, 'type': 'line', 'source': t.id, 'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 } });
+    // Visibilité fixée dès la création (layout), pas dans un setLayoutProperty
+    // séparé juste après : sur certains changements de fond de carte, un
+    // réglage posé "juste après" un addLayer pouvait être ignoré si le style
+    // n'était pas encore tout à fait stabilisé, laissant la trace invisible
+    // jusqu'à un désaffiche/réaffiche manuel.
+    const vis = t.visible ? 'visible' : 'none';
+    map.addLayer({ 'id': t.id + '-hit', 'type': 'line', 'source': t.id, 'layout': { 'visibility': vis }, 'paint': { 'line-color': '#000', 'line-width': 20, 'line-opacity': 0.01 } });
+    map.addLayer({ 'id': t.id, 'type': 'line', 'source': t.id, 'layout': { 'visibility': vis }, 'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 } });
     map.on('click', t.id + '-hit', () => setActiveTrack(t.id));
     map.on('mouseenter', t.id + '-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', t.id + '-hit', () => { map.getCanvas().style.cursor = ''; });
