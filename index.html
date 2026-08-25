@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.29</title>
+<title>GPX Compare v3.30</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -316,7 +316,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.29</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.30</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -377,7 +377,7 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.29</div>
+      <div id="cinema-watermark">GPX Compare v3.30</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -953,9 +953,10 @@ async function startRecording() {
       if (!blob) { blob = await captureFrameBlob(); } // une nouvelle tentative avant d'abandonner la frame
       if (!blob) { skippedCount++; console.error(`Frame ${i}/${totalFrames} ignorée (toBlob a échoué deux fois)`); continue; }
       frameBlobs.push(blob);
-      setStatus(`🔄 Calcul de la vidéo… ${Math.round((i / totalFrames) * 100)}%`);
+      setStatus(`🔄 Calcul de la vidéo… frame ${i}/${totalFrames} (${Math.round((i / totalFrames) * 100)}%)`);
     }
     if (skippedCount > 0) console.warn(`Export : ${skippedCount} frame(s) ignorée(s) sur ${totalFrames + 1} calculées (${frameBlobs.length} conservées).`);
+    console.log(`Phase 1 terminée : ${frameBlobs.length}/${totalFrames + 1} frames obtenues, dernier ratio=${currentRatio.toFixed(4)}, isRecording=${isRecording}`);
     if (!isRecording || frameBlobs.length === 0) return; // annulé pendant le calcul, ou rien à enregistrer
 
     // PHASE 2 (rapide, cadence stricte) : on rejoue les frames déjà calculées
@@ -980,7 +981,7 @@ async function startRecording() {
       a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
       a.click();
       URL.revokeObjectURL(url);
-      setStatus(skippedCount > 0 ? `Export terminé (${skippedCount} frame(s) ignorée(s) sur ${totalFrames + 1})` : 'Export vidéo terminé !');
+      setStatus(`Export terminé : ${frameBlobs.length}/${totalFrames + 1} images${skippedCount > 0 ? ` (${skippedCount} ignorée(s))` : ''}`);
     };
 
     mediaRecorder.start();
@@ -1003,7 +1004,7 @@ async function startRecording() {
         if (delay > 0) await new Promise(res => setTimeout(res, delay));
       }
       if (bmp) bmp.close();
-      setStatus(`🔴 Assemblage vidéo… ${Math.round(((i + 1) / frameBlobs.length) * 100)}%`);
+      setStatus(`🔴 Assemblage vidéo… frame ${i + 1}/${frameBlobs.length} (${Math.round(((i + 1) / frameBlobs.length) * 100)}%)`);
     }
     // Laisse l'encodeur digérer la toute dernière frame avant d'arrêter :
     // stopper trop vite après le dernier requestFrame() pouvait tronquer la
