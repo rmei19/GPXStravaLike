@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.31</title>
+<title>GPX Compare v3.32</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -92,20 +92,20 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
   display: flex;
 }
 
-/* Regroupe visuellement les boutons de l'onglet Carte & 3D par fonction
-   (fond/thème, vue caméra, options de lecture) au lieu d'un unique fouillis
-   de boutons — chaque groupe force sa propre ligne et se distingue par un
-   léger séparateur, surtout utile en largeur réduite (mobile). */
-#tb-carte { flex-direction: column; align-items: stretch; }
-#tb-carte .tb-group { display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; padding-top:6px; }
-#tb-carte .tb-group:not(:first-child) { border-top:1px solid var(--border-color); padding-top:8px; }
+/* Regroupe visuellement les boutons de chaque onglet par fonction, au lieu
+   d'un unique fouillis de boutons — chaque groupe force sa propre ligne et
+   se distingue par un léger séparateur, surtout utile en largeur réduite
+   (mobile). Appliqué aux 3 onglets pour une répartition homogène. */
+.tb-panel.active { flex-direction: column; align-items: stretch; }
+.tb-panel .tb-group { display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; padding-top:6px; }
+.tb-panel .tb-group:not(:first-child) { border-top:1px solid var(--border-color); padding-top:8px; }
 @media(max-width:700px){
   #topbar-tabs { gap:8px; padding:0 8px; }
   #topbar-tabs h1 { font-size:13px; padding:7px 7px 7px 0; }
   #appVersion { font-size:9px !important; }
   .tab-btn { padding:8px 6px; font-size:11px; }
-  #tb-carte .tb-group { gap:5px; padding-top:3px; }
-  #tb-carte button, #tb-carte select { font-size:11px; padding:5px 7px; }
+  .tb-panel .tb-group { gap:5px; padding-top:3px; }
+  .tb-panel button, .tb-panel select { font-size:11px; padding:5px 7px; }
 }
 
 button, .file-label, select, input[type="text"] {
@@ -316,16 +316,25 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.31</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.32</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
-    <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
+    <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
   </div>
 
   <div id="tb-fichiers" class="tb-panel active">
-    <label class="file-label">➕ Charger GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
-    <button id="clearBtn">🗑️ Tout effacer</button>
-    <button id="toggleSide" class="mobile-only">📋 Panneau Sorties</button>
+    <div class="tb-group">
+      <label class="file-label">➕ Charger GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
+      <button id="clearBtn">🗑️ Tout effacer</button>
+      <button id="toggleSide" class="mobile-only">📋 Panneau Sorties</button>
+    </div>
+    <div class="tb-group">
+      <select id="themeSelect">
+        <option value="system" selected>💻 Système</option>
+        <option value="dark">🌙 Sombre</option>
+        <option value="light">☀️ Clair</option>
+      </select>
+    </div>
   </div>
 
   <div id="tb-carte" class="tb-panel">
@@ -336,17 +345,15 @@ body.cinema-mode #cinema-watermark { display:block; }
         <option value="satellite">🛰️ MapTiler Satellite</option>
         <option value="topo-v2">⛰️ MapTiler Topo</option>
       </select>
-      <select id="themeSelect">
-        <option value="system" selected>💻 Système</option>
-        <option value="dark">🌙 Sombre</option>
-        <option value="light">☀️ Clair</option>
-      </select>
     </div>
     <div class="tb-group">
       <button id="btn3D">📐 3D</button>
       <button id="fitBtn">🎯 Recentrer</button>
       <button id="btnFullscreen">⛶ Plein écran</button>
     </div>
+  </div>
+
+  <div id="tb-export" class="tb-panel">
     <div class="tb-group">
       <button id="btnLiveStats">📊 Infos sortie</button>
       <select id="minimapPosSelect">
@@ -355,12 +362,11 @@ body.cinema-mode #cinema-watermark { display:block; }
         <option value="right">🗺️ Mini-carte : bas-droite</option>
       </select>
     </div>
-  </div>
-
-  <div id="tb-export" class="tb-panel">
-    <button id="btnCinema">🎦 Mode Cinéma</button>
-    <button id="btnExportVideoOpen" style="background:#e53935; border-color:#e53935; color:#fff;">🎬 Exporter Vidéo</button>
-    <button id="btnKey">🔑 Clé API</button>
+    <div class="tb-group">
+      <button id="btnCinema">🎦 Mode Cinéma</button>
+      <button id="btnExportVideoOpen" style="background:#e53935; border-color:#e53935; color:#fff;">🎬 Exporter Vidéo</button>
+      <button id="btnKey">🔑 Clé API</button>
+    </div>
   </div>
 </div>
 
@@ -377,7 +383,7 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.31</div>
+      <div id="cinema-watermark">GPX Compare v3.32</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
