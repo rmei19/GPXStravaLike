@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.26</title>
+<title>GPX Compare v3.27</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -92,6 +92,10 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
   display: flex;
 }
 
+/* Regroupe visuellement les boutons de l'onglet Carte & 3D par fonction
+   (fond/thème, vue caméra, options de lecture) au lieu d'un unique fouillis
+   de boutons — chaque groupe force sa propre ligne et se distingue par un
+   léger séparateur, surtout utile en largeur réduite (mobile). */
 #tb-carte { flex-direction: column; align-items: stretch; }
 #tb-carte .tb-group { display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; padding-top:6px; }
 #tb-carte .tb-group:not(:first-child) { border-top:1px solid var(--border-color); padding-top:8px; }
@@ -136,8 +140,12 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 #main-view { flex:1; display:flex; flex-direction:column; position:relative; height:100%; width:100%; min-width:0 }
 #map-container { flex:1; position:relative; width:100%; min-height:200px }
 
+/* Boutons +/- (et boussole) de MapLibre agrandis : trop petits par défaut
+   pour un usage tactile confortable. On zoome tout le groupe, ancré en haut
+   à droite, plutôt que de retoucher chaque bouton (les icônes restent nettes). */
 .maplibregl-ctrl-top-right { transform: scale(1.35); transform-origin: top right; }
 
+/* Mini-carte 2D (option) */
 #minimap-wrap { position:absolute; bottom:12px; width:150px; height:110px; background:rgba(30,31,35,0.85); border:1px solid rgba(255,255,255,0.25); border-radius:8px; z-index:900; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.4); }
 #minimap-wrap.hidden { display:none }
 #minimap-wrap.pos-left { left:12px }
@@ -145,10 +153,12 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 #minimapCanvas { width:100%; height:100%; display:block }
 @media(max-width:700px){ #minimap-wrap { width:110px; height:85px; bottom:8px } }
 
+/* Stats dénivelé/pente en direct (option, cachées par défaut) */
 .live-stat { display:none }
 body.live-stats-on .live-stat { display:inline }
 #map { position:absolute; inset:0; width:100%; height:100% }
 
+/* Profil / Controls */
 #profile-container { background:var(--bg-panel); color:var(--text-main); border-top:1px solid var(--border-color); padding:8px 12px; display:flex; flex-direction:column; gap:6px; flex:none; z-index:950; max-height:60vh; overflow-y:auto }
 #profile-header { display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600 }
 #active-track-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60% }
@@ -159,6 +169,7 @@ body.live-stats-on .live-stat { display:inline }
 #trim-controls { display:flex; flex-direction:column; gap:8px; width:100%; font-size:12px; color:var(--text-sub); background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:10px; }
 #trim-controls.hidden { display:none }
 .trim-row { display:flex; align-items:center; gap:8px; width:100% }
+/* Curseur plus haut et plus facile à viser au doigt (c'était trop fin/sensible) */
 #trim-controls input[type="range"] { flex:1; height:28px; accent-color:var(--accent); touch-action:pan-y; }
 .trim-value { font-weight:700; min-width:34px; text-align:right; color:var(--text-main); font-variant-numeric:tabular-nums; }
 #btnTrimReset { font-size:11px; padding:4px 10px; border-radius:5px; border:1px solid var(--border-color); background:var(--bg-panel); color:var(--text-main); cursor:pointer; margin-left:auto; }
@@ -172,6 +183,7 @@ body.live-stats-on .live-stat { display:inline }
 #trackSlider { flex:1; min-width:120px; height:20px; accent-color:var(--accent); cursor:pointer }
 #tracker-stats-bar { display:flex; gap:10px; font-size:11px; color:var(--text-sub); font-weight:500; width:100%; overflow-x:auto; white-space:nowrap; padding-top:2px }
 
+/* Side panel */
 #side { width:320px; max-width:35%; background:var(--bg-panel); color:var(--text-main); border-left:1px solid var(--border-color); padding:10px; display:flex; flex-direction:column; z-index:1500; transition: transform 0.3s ease; }
 #sideHeaderHandle { display:none }
 #side h2 { font-size:15px; margin:0 0 6px }
@@ -190,9 +202,11 @@ body.live-stats-on .live-stat { display:inline }
 .track-info { font-size:11px; color:var(--text-sub); margin-top:2px }
 .track-actions { display:flex; gap:4px }
 .track button { padding:3px 6px; font-size:11px; background:var(--bg-card); color:var(--text-main) }
+/* 👁️ et ✕ agrandis : cibles tactiles plus faciles sur mobile */
 .track-actions button { font-size:17px; min-width:34px; min-height:34px; padding:4px; border-radius:7px; line-height:1 }
 .track.hidden { opacity:.45 }
 
+/* MODE CINÉMA */
 body.cinema-mode #topbar-wrapper,
 body.cinema-mode #drop,
 body.cinema-mode #status,
@@ -212,14 +226,24 @@ body.cinema-mode #cinema-overlay { display: flex; }
 #cinema-overlay button#btnCinemaExit { background: #e53935; }
 #cinema-stats { color: white; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 130px; text-align: center; }
 
+/* Badge D+/Pente en mode Cinéma : coin opposé à la mini-carte pour ne pas se
+   chevaucher avec elle (les deux étaient plaqués en bas-gauche par défaut).
+   Grille 2x2 compacte plutôt qu'une ligne unique : sur un export portrait
+   étroit, une ligne "8.4 km · 1:23:36 · 271 m · +3.6%" déborde largement de
+   son coin et finit par recouvrir la mini-carte quand même — justement là où
+   le point de fin se trouve souvent (proche du départ). */
 #cinema-live-stats { display:none; position:absolute; bottom:12px; background:rgba(30,31,35,0.85); color:#fff; font-size:12px; font-weight:600; padding:6px 10px; border-radius:10px; z-index:1000; border:1px solid rgba(255,255,255,0.2); font-variant-numeric:tabular-nums; grid-template-columns:1fr 1fr; gap:2px 10px; max-width:150px; }
 body.cinema-mode #cinema-live-stats:not(.hidden) { display:grid; }
 #cinema-live-stats.corner-left { left:12px }
 #cinema-live-stats.corner-right { right:12px }
 
+/* Nom + version, discret, visible même en mode Cinéma (où la barre du haut
+   habituelle est masquée) — pour savoir de quelle version vient une vidéo
+   exportée quand on la revoit plus tard. */
 #cinema-watermark { display:none; position:absolute; top:8px; left:8px; font-size:10px; color:rgba(255,255,255,0.55); background:rgba(0,0,0,0.35); padding:2px 7px; border-radius:5px; z-index:1000; pointer-events:none; }
 body.cinema-mode #cinema-watermark { display:block; }
 
+/* Indicateur enregistrement */
 #record-indicator {
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
   background: rgba(229, 57, 53, 0.9); color: white; padding: 10px 20px;
@@ -272,8 +296,8 @@ body.cinema-mode #cinema-watermark { display:block; }
     <hr style="border:0; border-top:1px solid var(--border-color); margin:12px 0;">
 
     <div class="radio-group">
-      <label><input type="radio" name="exportQuality" value="standard" checked><b>Standard :</b> Qualité amélorée (5 Mbps, 30fps)</label>
-      <label><input type="radio" name="exportQuality" value="high"><b>Haute Qualité :</b> Ultra Net (60fps, 20 Mbps)</label>
+      <label><input type="radio" name="exportQuality" value="standard" checked><b>Standard :</b> Léger (Téléphone, 30fps)</label>
+      <label><input type="radio" name="exportQuality" value="high"><b>Haute Qualité :</b> Fluide & Net (PC, 60fps, 8Mbps)</label>
     </div>
 
     <div class="modal-actions">
@@ -286,7 +310,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.26</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.27</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -347,7 +371,7 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.26</div>
+      <div id="cinema-watermark">GPX Compare v3.27</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -431,6 +455,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
 <script>
+// Onglets
 const tabBtns = document.querySelectorAll('.tab-btn');
 const tbPanels = document.querySelectorAll('.tb-panel');
 tabBtns.forEach(btn => {
@@ -443,6 +468,7 @@ tabBtns.forEach(btn => {
   });
 });
 
+// MapTiler & Clé
 let MAPTILER_KEY = localStorage.getItem('maptiler_api_key') || '';
 const keyModal = document.getElementById('keyModal');
 const apiKeyInput = document.getElementById('apiKeyInput');
@@ -470,6 +496,7 @@ document.getElementById('saveKeyBtn').addEventListener('click', () => {
   } else alert('Clé vide.');
 });
 
+// Carte & Amortisseurs de Caméra (Lerp)
 const ELE_THRESHOLD = 1.5;
 let is3DMode = false, map = null;
 document.getElementById('cinema-watermark').textContent = 'GPX Compare ' + document.getElementById('appVersion').textContent;
@@ -478,7 +505,7 @@ let currentSlope = 0;
 let currentCameraPitch = 0;
 let currentZoomMargin = 0;
 let currentCameraZoom = 14;
-const SMOOTHING_FACTOR = 0.06;
+const SMOOTHING_FACTOR = 0.06; // Ajustement de l'amorti anti-vibration
 
 function lerp(start, end, amount) { return (1 - amount) * start + amount * end; }
 function lerpAngle(start, end, amount) {
@@ -512,6 +539,9 @@ function initMap() {
     }
   });
   map.on('style.load', () => {
+    // On restaure d'abord les traces GPX et le curseur : même si l'étape 3D
+    // plante plus bas (style sans couche bâtiment exploitable), les traces
+    // doivent rester visibles après un changement de fond de carte.
     restoreTracksOnMap();
     initTrackerLayer();
     if (activeTrackId) setTrackPositionByRatio(currentRatio);
@@ -519,7 +549,7 @@ function initMap() {
       if (is3DMode) apply3DTerrain();
       apply3DBuildings();
     } catch (err) {
-      console.error('Rendu 3D indisponible sur ce fond de carte :', err);
+      console.error('Rendu 3D (terrain/bâtiments) indisponible sur ce fond de carte :', err);
     }
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
@@ -535,6 +565,8 @@ function apply3DTerrain() {
 
 function apply3DBuildings() {
   if (!map || !map.getStyle().layers) return;
+  // Cherche une vraie couche vectorielle "building" (avec une source valide),
+  // en évitant les couches type "background" qui n'ont pas de source-layer.
   const buildingLayer = map.getStyle().layers.find(l =>
     l.source && (l.id.includes('building') || l['source-layer'] === 'building') && l.type !== 'fill-extrusion'
   );
@@ -580,7 +612,10 @@ document.getElementById('btn3D').addEventListener('click', () => {
   }
 });
 
+// Option : Pente / D+ en direct
 let showLiveStats = false;
+// Panneau "Sorties" sur mobile : coincé en bas par défaut (poignée visible),
+// s'ouvre en cliquant le bouton dédié ou en tapant/glissant sur sa poignée.
 const sideEl = document.getElementById('side');
 const toggleSideBtn = document.getElementById('toggleSide');
 if (toggleSideBtn) toggleSideBtn.addEventListener('click', () => {
@@ -589,7 +624,7 @@ if (toggleSideBtn) toggleSideBtn.addEventListener('click', () => {
 });
 const sideHeaderEl = document.getElementById('sideHeader');
 if (sideHeaderEl) sideHeaderEl.addEventListener('click', (e) => {
-  if (window.innerWidth > 700) return;
+  if (window.innerWidth > 700) return; // uniquement utile en layout mobile
   sideEl.classList.toggle('open');
   if (toggleSideBtn) toggleSideBtn.classList.toggle('active', sideEl.classList.contains('open'));
 });
@@ -604,14 +639,17 @@ btnLiveStats.addEventListener('click', () => {
   updateCinemaLiveStatsVisibility();
 });
 
+// Option : Mini-carte 2D (bas-gauche / bas-droite)
 const minimapWrap = document.getElementById('minimap-wrap');
 const minimapCanvas = document.getElementById('minimapCanvas');
 const mctx = minimapCanvas.getContext('2d');
 let minimapPos = 'off', minimapBounds = null;
 
+// Le badge D+/Pente du mode Cinéma se place dans le coin opposé à la
+// mini-carte pour ne jamais se chevaucher avec elle.
 function updateCinemaLiveStatsVisibility() {
   cinemaLiveStats.classList.toggle('hidden', !showLiveStats);
-  const oppositeCorner = minimapPos === 'left' ? 'right' : 'left';
+  const oppositeCorner = minimapPos === 'left' ? 'right' : 'left'; // 'off' -> bas-gauche par défaut
   cinemaLiveStats.classList.toggle('corner-left', oppositeCorner === 'left');
   cinemaLiveStats.classList.toggle('corner-right', oppositeCorner === 'right');
 }
@@ -632,6 +670,10 @@ function resizeMinimap() {
   minimapCanvas.height = rect.height * window.devicePixelRatio;
 }
 
+// Le tracé statique (potentiellement des milliers de points GPS) est dessiné
+// une seule fois sur un canvas hors-écran, plutôt que d'être entièrement
+// redessiné à chaque frame d'animation — c'était devenu un vrai goulot
+// d'étranglement et une source de saccades une fois la mini-carte ajoutée.
 let minimapRouteCanvas = null, minimapRouteCtx = null;
 
 function drawMinimapRoute() {
@@ -656,10 +698,11 @@ function projectMinimap(lon, lat) {
   const w = minimapCanvas.width, h = minimapCanvas.height, pad = 10 * window.devicePixelRatio;
   const { minLon, maxLon, minLat, maxLat } = minimapBounds;
   const lonSpan = (maxLon - minLon) || 0.001, latSpan = (maxLat - minLat) || 0.001;
+  // Conserve le ratio pour ne pas déformer le tracé
   const scale = Math.min((w - pad * 2) / lonSpan, (h - pad * 2) / latSpan);
   const drawW = lonSpan * scale, drawH = latSpan * scale;
   const offX = pad + ((w - pad * 2) - drawW) / 2, offY = pad + ((h - pad * 2) - drawH) / 2;
-  return [offX + (lon - minLon) * scale, offY + (maxLat - lat) * scale];
+  return [offX + (lon - minLon) * scale, offY + (maxLat - lat) * scale]; // Y inversé (nord en haut)
 }
 
 function redrawMinimap() {
@@ -682,6 +725,8 @@ function redrawMinimap() {
 }
 window.addEventListener('resize', () => { if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); } });
 
+
+// Cinéma & Export Vidéo
 const btnCinema = document.getElementById('btnCinema');
 const btnCinemaExit = document.getElementById('btnCinemaExit');
 let isCinemaMode = false;
@@ -704,15 +749,36 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
+// captureStream() sur le canvas de la carte ne récupère QUE le rendu WebGL :
+// la mini-carte et les stats D+/Pente sont des éléments HTML posés par-dessus
+// et n'apparaissaient donc jamais dans la vidéo exportée. On compose ici une
+// image finale (carte + mini-carte + stats) sur un canvas séparé, capturé à
+// la place — à chaque rendu réel de la carte ('render'), pour rester synchro.
 function drawExportFrame() {
   if (!isRecording || !map) return;
   const mc = map.getCanvas();
+  // Plafonne la résolution d'export : sur un mobile à haute densité de pixels
+  // (DPR 2-3x), le canvas de la carte peut atteindre 1200x2200px ou plus.
+  // L'encodage vidéo temps réel (VP9) à cette résolution dépasse largement ce
+  // qu'un téléphone peut tenir en continu pendant la phase d'assemblage, et
+  // fait perdre silencieusement des frames — d'où une vidéo au final bien
+  // moins fluide/nette que prévu, malgré un calcul de frames complet en amont.
+  const MAX_EXPORT_DIM = 1280;
+  let targetW = mc.width, targetH = mc.height;
+  const longest = Math.max(targetW, targetH);
+  if (longest > MAX_EXPORT_DIM) {
+    const scale = MAX_EXPORT_DIM / longest;
+    targetW = Math.round(targetW * scale);
+    targetH = Math.round(targetH * scale);
+  }
   if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
-  if (exportCanvas.width !== mc.width || exportCanvas.height !== mc.height) { exportCanvas.width = mc.width; exportCanvas.height = mc.height; }
-  exportCtx.drawImage(mc, 0, 0);
+  if (exportCanvas.width !== targetW || exportCanvas.height !== targetH) { exportCanvas.width = targetW; exportCanvas.height = targetH; }
+  exportCtx.drawImage(mc, 0, 0, exportCanvas.width, exportCanvas.height);
 
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = (window.devicePixelRatio || 1) * (exportCanvas.width / mc.width); // ajuste la taille des éléments UI à la résolution d'export (peut être réduite)
 
+  // Filigrane nom + version, discret, pour identifier la version qui a
+  // produit cette vidéo si on la revoit plus tard.
   exportCtx.save();
   exportCtx.font = `${10 * dpr}px -apple-system, sans-serif`;
   exportCtx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -737,6 +803,11 @@ function drawExportFrame() {
   }
 
   if (showLiveStats) {
+    // Grille 2x2 compacte (comme le badge à l'écran) plutôt qu'une ligne
+    // large : sur un export portrait étroit, une ligne "8.4 km · 1:23:36 ·
+    // 271 m · +3.6%" déborde de son coin et finit par recouvrir la
+    // mini-carte quand même — justement là où le point de fin se trouve
+    // souvent (proche du départ), le cachant complètement.
     const cells = [
       document.getElementById('stDist').textContent, document.getElementById('stTemps').textContent,
       document.getElementById('stDplus').textContent, document.getElementById('stPente').textContent
@@ -749,6 +820,7 @@ function drawExportFrame() {
     const colW = Math.max(exportCtx.measureText(cells[0]).width, exportCtx.measureText(cells[2]).width, exportCtx.measureText(cells[1]).width, exportCtx.measureText(cells[3]).width);
     const boxW = padX * 2 + colW * 2 + colGap;
     const boxH = padY * 2 + rowH * 2;
+    // Coin opposé à la mini-carte pour ne pas se chevaucher (comme à l'écran)
     const oppositeCorner = minimapPos === 'left' ? 'right' : 'left';
     const bx = oppositeCorner === 'left' ? margin : exportCanvas.width - boxW - margin;
     const by = exportCanvas.height - boxH - margin;
@@ -781,10 +853,12 @@ document.getElementById('startExportBtn').addEventListener('click', () => {
 
 document.getElementById('btnStopRecordGlobal').addEventListener('click', stopRecording);
 
+// Mesure combien de temps l'appareil met à décoder un JPEG et le dessiner
+// sur le canvas d'export — c'est cette étape (pas le calcul de la caméra)
+// qui limitait le fps réellement tenable en phase 2 de l'export.
 async function benchmarkDecodeCost() {
   try {
-    // Qualité augmentée à 0.95 pour un rendu haute fidélité
-    const blob = await new Promise(res => exportCanvas.toBlob(res, 'image/jpeg', 0.95));
+    const blob = await new Promise(res => exportCanvas.toBlob(res, 'image/jpeg', 0.88));
     if (!blob) return Infinity;
     const trials = 3;
     let total = 0;
@@ -796,15 +870,14 @@ async function benchmarkDecodeCost() {
       total += performance.now() - t0;
     }
     return total / trials;
-  } catch (e) { return Infinity; }
+  } catch (e) { return Infinity; } // en cas de doute, on part du principe que c'est lent (repli sûr)
 }
 
+// Encode la frame courante en JPEG, avec gestion d'échec (peut arriver sous
+// pression mémoire, notamment sur mobile avec un grand canvas).
 function captureFrameBlob() {
   return new Promise(res => {
-    try { 
-      // Augmentation de la qualité JPEG de 0.8 à 0.95 pour éliminer les artefacts
-      exportCanvas.toBlob(b => res(b || null), 'image/jpeg', 0.95); 
-    }
+    try { exportCanvas.toBlob(b => res(b || null), 'image/jpeg', 0.8); }
     catch (e) { res(null); }
   });
 }
@@ -813,15 +886,15 @@ async function startRecording() {
   const activeTr = tracks.find(t => t.id === activeTrackId);
   if (!activeTr || !map) return;
 
+  // Précharge les tuiles 3D/satellite le long du parcours AVANT de démarrer
+  // l'enregistrement, pour éviter les gels de plusieurs secondes pendant la
+  // capture (visibles dans la vidéo exportée quand la caméra entre dans une
+  // zone jamais chargée).
   if (is3DMode) { setStatus('🔄 Préchargement des tuiles avant enregistrement...'); await warmupTiles(activeTr); }
 
   const quality = document.querySelector('input[name="exportQuality"]:checked').value;
-  const outputFps = quality === 'high' ? 60 : 30;
-  
-  // Augmentation sensible des débits binaires (bitrates) pour une image ultra-nette :
-  // Standard passe à 5 Mbps (au lieu de 2.5), Haute Qualité passe à 20 Mbps (au lieu de 8)
-  const bitrate = quality === 'high' ? 20000000 : 5000000;
-  
+  const outputFps = quality === 'high' ? 60 : 30; // fps du fichier vidéo final, choisi par l'utilisateur
+  const bitrate = quality === 'high' ? 8000000 : 2500000;
   const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
 
   isRecording = true;
@@ -830,9 +903,17 @@ async function startRecording() {
   if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
   drawExportFrame();
 
+  // Le nombre de frames UNIQUES réellement calculées (contentFps) dépend de
+  // la vitesse de décodage JPEG de l'appareil, mesurée ici plutôt que
+  // supposée : un ordinateur tient généralement du vrai 60fps (60 positions
+  // de caméra distinctes par seconde), un mobile souvent pas — décoder plus
+  // vite que son budget de 16 ms/frame gonflait la durée réelle de la vidéo
+  // (1min de sélection -> 1min46 de rendu). Si l'appareil est trop lent pour
+  // le fps choisi, chaque frame calculée est dupliquée en phase 2 pour
+  // atteindre quand même le fps de sortie — sans re-décoder, donc sans coût.
   setStatus('🔍 Test de performance de l\'appareil...');
   const avgDecodeMs = await benchmarkDecodeCost();
-  const budgetMs = (1000 / outputFps) * 0.55;
+  const budgetMs = (1000 / outputFps) * 0.55; // marge pour le reste du travail par frame (calcul position, requestFrame...)
   const contentFps = avgDecodeMs <= budgetMs ? outputFps : Math.min(outputFps, 30);
   const repeatPerFrame = Math.round(outputFps / contentFps);
   const totalFrames = Math.max(1, Math.round(durationSec * contentFps));
@@ -841,7 +922,19 @@ async function startRecording() {
   if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
   currentSlope = 0; currentZoomMargin = 0;
 
+  // Tout le processus est enveloppé dans un try/finally : si une erreur
+  // survient à un moment ou un autre (frame invalide, mémoire...), l'export
+  // s'arrête proprement et la vidéo déjà enregistrée est quand même
+  // finalisée, au lieu de s'interrompre silencieusement en cours de route
+  // (ce qui produisait des vidéos plus courtes que prévu).
   try {
+    // PHASE 1 (peut être lente, c'est voulu) : on calcule chaque frame et on
+    // la met de côté, en attendant à chaque fois que le relief/les tuiles
+    // aient fini de charger. Rien n'est encore enregistré ici — MediaRecorder
+    // cale la durée de la vidéo sur le temps réel écoulé PENDANT
+    // l'enregistrement, donc tant qu'on n'a pas démarré l'enregistrement,
+    // cette phase peut prendre le temps qu'il faut sans jamais rallonger la
+    // vidéo finale.
     const frameBlobs = [];
     let skippedCount = 0;
     for (let i = 0; i <= totalFrames && isRecording; i++) {
@@ -850,14 +943,18 @@ async function startRecording() {
       await waitForMapSettled(2000);
       drawExportFrame();
       let blob = await captureFrameBlob();
-      if (!blob) { blob = await captureFrameBlob(); }
-      if (!blob) { skippedCount++; console.error(`Frame ${i}/${totalFrames} ignorée`); continue; }
+      if (!blob) { blob = await captureFrameBlob(); } // une nouvelle tentative avant d'abandonner la frame
+      if (!blob) { skippedCount++; console.error(`Frame ${i}/${totalFrames} ignorée (toBlob a échoué deux fois)`); continue; }
       frameBlobs.push(blob);
       setStatus(`🔄 Calcul de la vidéo… ${Math.round((i / totalFrames) * 100)}%`);
     }
-    if (skippedCount > 0) console.warn(`Export : ${skippedCount} frame(s) ignorée(s).`);
-    if (!isRecording || frameBlobs.length === 0) return;
+    if (skippedCount > 0) console.warn(`Export : ${skippedCount} frame(s) ignorée(s) sur ${totalFrames + 1} calculées (${frameBlobs.length} conservées).`);
+    if (!isRecording || frameBlobs.length === 0) return; // annulé pendant le calcul, ou rien à enregistrer
 
+    // PHASE 2 (rapide, cadence stricte) : on rejoue les frames déjà calculées
+    // à intervalle régulier — c'est CETTE phase, et seulement elle, qui
+    // détermine la durée de la vidéo finale : elle correspond donc bien à la
+    // durée choisie, quel qu'ait été le temps pris par la phase 1.
     const stream = exportCanvas.captureStream(0);
     const videoTrack = stream.getVideoTracks()[0];
     try {
@@ -876,7 +973,7 @@ async function startRecording() {
       a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
       a.click();
       URL.revokeObjectURL(url);
-      setStatus(skippedCount > 0 ? `Export terminé (${skippedCount} frame(s) ignorée(s))` : 'Export vidéo terminé !');
+      setStatus(skippedCount > 0 ? `Export terminé (${skippedCount} frame(s) ignorée(s) sur ${totalFrames + 1})` : 'Export vidéo terminé !');
     };
 
     mediaRecorder.start();
@@ -888,7 +985,10 @@ async function startRecording() {
       try {
         bmp = await createImageBitmap(frameBlobs[i]);
         exportCtx.drawImage(bmp, 0, 0, exportCanvas.width, exportCanvas.height);
-      } catch (e) { console.error('Frame ignorée :', e); }
+      } catch (e) { console.error('Frame ignorée (échec décodage) :', e); } // on garde la cadence même si une frame est illisible
+      // Chaque frame décodée est répétée (2x en 60fps) pour atteindre la
+      // cadence de sortie sans redécoder — c'est le décodage qui coûtait
+      // cher, pas l'affichage répété d'une image déjà en mémoire.
       for (let r = 0; r < repeatPerFrame && isRecording; r++) {
         videoTrack.requestFrame();
         nextTime += frameIntervalMs;
@@ -898,19 +998,28 @@ async function startRecording() {
       if (bmp) bmp.close();
       setStatus(`🔴 Assemblage vidéo… ${Math.round(((i + 1) / frameBlobs.length) * 100)}%`);
     }
+    // Laisse l'encodeur digérer la toute dernière frame avant d'arrêter :
+    // stopper trop vite après le dernier requestFrame() pouvait tronquer la
+    // fin de la vidéo.
     await new Promise(r => setTimeout(r, 300));
   } catch (e) {
-    console.error('Export vidéo interrompu :', e);
-    setStatus('⚠️ Export interrompu.');
+    console.error('Export vidéo interrompu par une erreur :', e);
+    setStatus('⚠️ Export interrompu (voir console).');
   } finally {
     stopRecording();
   }
 }
 
+// Attend que la carte n'ait plus de tuiles en attente (relief, satellite...)
+// avant de considérer une frame "prête", plafonné à maxWaitMs pour ne jamais
+// bloquer indéfiniment si une tuile ne charge pas. Si rien n'a besoin de
+// charger (cas le plus fréquent grâce au préchargement), on ne perd quasi
+// aucun temps : sans ce court-circuit, chaque frame attendrait bêtement le
+// délai max même à vide (900 frames × 1,5s = 20+ minutes pour rien).
 function waitForMapSettled(maxWaitMs) {
   if (!map) return Promise.resolve();
   return new Promise(resolve => {
-    requestAnimationFrame(() => {
+    requestAnimationFrame(() => { // laisse jumpTo() déclencher ses requêtes de tuiles avant de vérifier
       if (map.loaded()) { resolve(); return; }
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
@@ -928,6 +1037,7 @@ function stopRecording() {
   recordIndicator.classList.remove('active');
 }
 
+// Logique GPX & Animation Lissée
 const colors = ['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b','#6d4c41','#3949ab','#d81b60','#546e7a'];
 let tracks = [], colorIndex = 0, activeTrackId = null;
 let isPlaying = false, playAnimationId = null, currentRatio = 0, lastFrameTime = 0;
@@ -963,17 +1073,23 @@ function readFile(file) {
   r.onload = () => {
     const t = addGPX(deriveTrackName(file.name, r.result), r.result);
     setStatus(file.name + ' chargé.');
-    autoRenameTrack(t, r.result);
+    autoRenameTrack(t, r.result); // renomme en arrière-plan une fois date/lieu/sport résolus (réseau)
   };
   r.readAsText(file, 'UTF-8');
 }
 
+// Les GPX exportés (Strava, etc.) embarquent souvent un vrai titre d'activité
+// dans <trk><name> ou <metadata><name>, bien plus lisible que le nom de
+// fichier auto-généré (ex: "export_19862333608.gpx"). On le préfère quand il
+// existe ; sinon on nettoie un minimum le nom de fichier en repli. Ce nom
+// sert de repli immédiat, avant que autoRenameTrack() ne le remplace par le
+// format date-lieu-sport une fois le géocodage terminé.
 function deriveTrackName(filename, gpxText) {
   try {
     const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
     const trkName = xml.querySelector('trk > name, metadata > name, gpx > name');
     if (trkName && trkName.textContent.trim()) return trkName.textContent.trim();
-  } catch (e) {}
+  } catch (e) { /* pas grave, on retombe sur le nom de fichier */ }
   return filename.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ').trim() || filename;
 }
 
@@ -995,7 +1111,7 @@ function extractSportLabel(gpxText) {
       const key = raw.toLowerCase().replace(/[\s-]+/g, '_');
       return SPORT_LABELS[key] || raw;
     }
-  } catch (e) {}
+  } catch (e) { /* pas grave */ }
   return null;
 }
 
@@ -1005,12 +1121,14 @@ function extractFirstDate(gpxText) {
     const timeEl = xml.querySelector('metadata > time, trkpt time, time');
     if (timeEl && timeEl.textContent.trim()) {
       const d = new Date(timeEl.textContent.trim());
-      if (!isNaN(d)) return d.toISOString().slice(0, 10);
+      if (!isNaN(d)) return d.toISOString().slice(0, 10); // YYYY-MM-DD
     }
-  } catch (e) {}
+  } catch (e) { /* pas grave */ }
   return null;
 }
 
+// Géocodage inverse : MapTiler si une clé est configurée (plus fiable, déjà
+// utilisée pour les fonds de carte), sinon repli gratuit sur Nominatim/OSM.
 async function reverseGeocodeLieu(lat, lon) {
   try {
     if (MAPTILER_KEY) {
@@ -1021,7 +1139,7 @@ async function reverseGeocodeLieu(lat, lon) {
         if (f && f.text) return f.text;
       }
     }
-  } catch (e) {}
+  } catch (e) { /* on retombe sur Nominatim */ }
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=14&accept-language=fr`);
     if (res.ok) {
@@ -1029,10 +1147,13 @@ async function reverseGeocodeLieu(lat, lon) {
       const a = data.address || {};
       return a.village || a.town || a.city || a.municipality || a.suburb || a.county || null;
     }
-  } catch (e) {}
+  } catch (e) { /* pas de réseau / hors-ligne : on garde le nom de repli */ }
   return null;
 }
 
+// Renomme au format "date - lieu - sport" une fois les infos disponibles.
+// N'écrase le nom de repli que si on obtient au moins une info exploitable
+// (pas de réseau ou géocodage en échec -> le nom d'origine est conservé).
 async function autoRenameTrack(t, gpxText) {
   const firstPt = t.rawPoints[0];
   if (!firstPt) return;
@@ -1040,7 +1161,7 @@ async function autoRenameTrack(t, gpxText) {
   const sport = extractSportLabel(gpxText) || 'Sortie';
   const lieu = await reverseGeocodeLieu(firstPt.lat, firstPt.lon);
   const parts = [date, lieu, sport].filter(Boolean);
-  if (parts.length < 2) return;
+  if (parts.length < 2) return; // ni date ni lieu trouvés : pas assez d'infos, on garde le nom existant
   t.name = parts.join(' - ');
   if (t.id === activeTrackId) document.getElementById('active-track-name').textContent = t.name;
   sortAndRenderTracks();
@@ -1067,6 +1188,10 @@ function calculateTrackData(points) {
       hasEle = true; if (pt.ele < minEle) minEle = pt.ele; if (pt.ele > maxEle) maxEle = pt.ele;
       if (lastEle !== null) {
         const diff = pt.ele - lastEle;
+        // On ne déplace la référence que si l'écart dépasse le seuil de bruit
+        // (montée OU descente) ; sinon on la laisse en place pour que les
+        // petits écarts successifs (montée progressive) finissent par
+        // s'additionner au lieu d'être effacés à chaque point.
         if (diff >= ELE_THRESHOLD) { cumDplus += diff; lastEle = pt.ele; }
         else if (diff <= -ELE_THRESHOLD) { lastEle = pt.ele; }
       } else { lastEle = pt.ele; }
@@ -1087,6 +1212,10 @@ function addGPX(name, text) {
   return t;
 }
 
+// Retire une portion (en %) du début et/ou de la fin de la trace brute — utile
+// quand l'enregistrement a démarré avant de bouger ou s'est arrêté en retard.
+// Recalcule les stats (distance, D+...) et met à jour tout ce qui dépend du
+// tracé (ligne sur la carte, mini-carte, profil, position du curseur).
 function applyTrim(t) {
   const n = t.rawPoints.length;
   const startIdx = Math.floor(n * (t.trimStart / 100));
@@ -1099,6 +1228,10 @@ function applyTrim(t) {
   if (t.id === activeTrackId) {
     document.getElementById('active-track-stats').textContent = `${t.data.totalDist.toFixed(1)} km · +${Math.round(t.data.totalDplus)}m`;
     currentRatio = 0;
+    // Resynchronise la caméra sur l'état réel de la carte avant de la
+    // recentrer : sinon, tant que la sortie n'a jamais été jouée une fois
+    // (playTrack ne l'a donc jamais fait), ces variables gardent le zoom
+    // d'AVANT le premier fitAll() et le rognage semble "dézoomer" la carte.
     if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
     drawMinimapRoute(); setTrackPositionByRatio(0);
   } else {
@@ -1119,7 +1252,7 @@ const trimEndValue = document.getElementById('trimEndValue');
 function onTrimChange(e) {
   const tr = tracks.find(t => t.id === activeTrackId); if (!tr) return;
   let s = parseInt(trimStartSlider.value, 10), en = parseInt(trimEndSlider.value, 10);
-  if (s + en > 90) {
+  if (s + en > 90) { // garde au moins 10% de la trace
     if (e.target === trimStartSlider) en = Math.max(0, 90 - s); else s = Math.max(0, 90 - en);
     trimStartSlider.value = s; trimEndSlider.value = en;
   }
@@ -1151,6 +1284,8 @@ function renderTrackOnMap(t) {
   if (!map) return;
   if (!map.getSource(t.id)) {
     map.addSource(t.id, { 'type': 'geojson', 'data': { 'type': 'Feature', 'geometry': { 'type': 'LineString', 'coordinates': t.data.points.map(p => [p.lon, p.lat]) } } });
+    // Couche invisible plus large sous la ligne visible : zone de clic plus
+    // confortable (5px de ligne, c'est très étroit à viser à la souris/au doigt).
     map.addLayer({ 'id': t.id + '-hit', 'type': 'line', 'source': t.id, 'paint': { 'line-color': '#000', 'line-width': 20, 'line-opacity': 0.01 } });
     map.addLayer({ 'id': t.id, 'type': 'line', 'source': t.id, 'paint': { 'line-color': t.color, 'line-width': 5, 'line-opacity': 0.85 } });
     map.on('click', t.id + '-hit', () => setActiveTrack(t.id));
@@ -1223,6 +1358,10 @@ function setTrackPositionByRatio(ratio) {
   const dist = p1.dist + (p2.dist - p1.dist) * f;
   const dplus = p1.cumDplus + (p2.cumDplus - p1.cumDplus) * f;
 
+  // Pente lissée (lerp) sur le segment courant : l'altitude GPS point à point
+  // est bruitée, un lissage évite une valeur (et un pitch caméra) qui saute
+  // sans arrêt. Calculée systématiquement (pas juste si affichée) car la
+  // caméra en a besoin pour s'ajuster en pente forte.
   const distDeltaM = (p2.dist - p1.dist) * 1000;
   const rawSlope = (distDeltaM > 0.5 && p1.ele !== null && p2.ele !== null) ? ((p2.ele - p1.ele) / distDeltaM) * 100 : currentSlope;
   currentSlope = lerp(currentSlope, isFinite(rawSlope) ? rawSlope : 0, SMOOTHING_FACTOR * 3);
@@ -1235,10 +1374,18 @@ function setTrackPositionByRatio(ratio) {
       let targetBearing = map.getBearing();
       if (camMode === 'fixed') targetBearing = 0;
       else {
+        // Cap calculé sur une fenêtre "lookahead" (~20 m) plutôt qu'entre deux
+        // points GPS adjacents : deux points très proches donnent un cap très
+        // bruité (le moindre écart GPS fait varier l'angle de plusieurs dizaines
+        // de degrés d'une frame à l'autre), ce qui faisait vibrer/saccader la
+        // caméra, surtout en mode Seuil.
         let rawB = getLookaheadBearing(pts, idx, p1.dist);
         if (isNaN(rawB)) rawB = calculateBearing(p1.lat, p1.lon, p2.lat, p2.lon);
         if (!isNaN(rawB)) {
           if (camMode === 'threshold') {
+            // Ne réagit que si l'écart dépasse le seuil, et rejoint alors le
+            // cap cible progressivement (lerp) au lieu de sauter dessus d'un
+            // coup en une seule frame — c'était la source des à-coups.
             let diff = (2 * ((rawB - currentCameraBearing) % 360)) % 360 - ((rawB - currentCameraBearing) % 360);
             if (Math.abs(diff) > 25) currentCameraBearing = lerpAngle(currentCameraBearing, rawB, SMOOTHING_FACTOR * 1.5);
             targetBearing = currentCameraBearing;
@@ -1249,16 +1396,29 @@ function setTrackPositionByRatio(ratio) {
         }
       }
       
+      // Amorti du zoom / altitude de la caméra pour éviter les sauts brusques.
+      // On retire de la lecture la marge de dézoom qu'on avait appliquée à la
+      // frame précédente (currentZoomMargin) : sinon ce dézoom de secours se
+      // relit lui-même comme "le vrai zoom" et s'accumule sans fin tout du
+      // long d'une pente soutenue, au lieu de rester plafonné à ~1,3 niveau
+      // (c'était le dézoom exagéré observé sur les longues descentes).
       let targetZoom = map.getZoom() + currentZoomMargin;
       currentCameraZoom = lerp(currentCameraZoom, targetZoom, SMOOTHING_FACTOR);
 
+      // En pente marquée (montée ou descente), le relief qui se dresse devant
+      // la caméra pousse le point vers le haut du cadre, jusqu'à le faire
+      // sortir. Le seuil de déclenchement a été abaissé (15% → 8%) et l'effet
+      // combine désormais une caméra plus plongeante ET un léger dézoom : le
+      // dézoom est le levier le plus fiable (il élargit le champ visible dans
+      // toutes les directions, indépendamment de la façon dont MapLibre cale
+      // caméra et relief), le pitch réduit vient en renfort.
       const basePitch = is3DMode ? 60 : 0;
       let targetPitch = basePitch, targetZoomMargin = 0;
       if (is3DMode) {
         const absSlope = Math.abs(currentSlope);
-        const t = Math.min(1, Math.max(0, (absSlope - 8) / 20));
-        targetPitch = basePitch - t * 35;
-        targetZoomMargin = t * 1.3;
+        const t = Math.min(1, Math.max(0, (absSlope - 8) / 20)); // 0 sous 8%, effet plein dès 28%
+        targetPitch = basePitch - t * 35; // jusqu'à 60° -> 25°
+        targetZoomMargin = t * 1.3; // dézoome jusqu'à ~1.3 niveau, jamais plus
       }
       currentCameraPitch = lerp(currentCameraPitch, targetPitch, SMOOTHING_FACTOR * 2);
       currentZoomMargin = lerp(currentZoomMargin, targetZoomMargin, SMOOTHING_FACTOR * 2);
@@ -1305,8 +1465,13 @@ let warmedTrackId = null, warmedStyleKey = null;
 async function warmupTiles(tr) {
   if (!map || !tr || !tr.data.points.length) return;
   const styleKey = document.getElementById('mapStyleSelect').value;
-  if (warmedTrackId === tr.id && warmedStyleKey === styleKey) return;
+  if (warmedTrackId === tr.id && warmedStyleKey === styleKey) return; // déjà préchargé pour ce couple trace/fond
   const pts = tr.data.points;
+  // Un point de survol tous les ~150 m plutôt qu'un nombre fixe de points :
+  // sur un long parcours, 12 points fixes laissaient de grandes zones jamais
+  // survolées à l'avance, donc des tuiles de relief (DEM) pas encore chargées
+  // pendant le vol réel — c'est ce qui fait "sauter" le point bleu (la caméra
+  // se cale sur une hypothèse d'altitude fausse tant que la tuile n'est pas là).
   const steps = Math.max(10, Math.min(60, Math.round(tr.data.totalDist / 0.15)));
   const saved = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
   const flightZoom = Math.max(currentCameraZoom, 14);
@@ -1318,7 +1483,7 @@ async function warmupTiles(tr) {
     }
     await Promise.race([
       new Promise(r => { if (map.loaded()) r(); else map.once('idle', r); }),
-      new Promise(r => setTimeout(r, 5000))
+      new Promise(r => setTimeout(r, 5000)) // garde-fou si 'idle' ne se déclenche pas
     ]);
   } finally {
     map.jumpTo({ center: saved.center, zoom: saved.zoom, bearing: saved.bearing, pitch: saved.pitch });
@@ -1326,17 +1491,21 @@ async function warmupTiles(tr) {
   }
 }
 
+// Empêche l'écran de se mettre en veille pendant la lecture ou l'export
+// vidéo (sinon Android coupe l'écran en plein milieu d'un enregistrement).
 let wakeLock = null;
 async function acquireWakeLock() {
   if (!('wakeLock' in navigator) || wakeLock) return;
   try {
     wakeLock = await navigator.wakeLock.request('screen');
     wakeLock.addEventListener('release', () => { wakeLock = null; });
-  } catch (e) {}
+  } catch (e) { /* refusé (onglet en arrière-plan, etc.) — pas bloquant */ }
 }
 function releaseWakeLock() {
   if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
 }
+// Le wake lock est automatiquement relâché par le navigateur quand l'onglet
+// perd le focus ; on le redemande au retour si la lecture est toujours en cours.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && (isPlaying || isRecording)) acquireWakeLock();
 });
@@ -1345,6 +1514,9 @@ async function playTrack() {
   if (currentRatio >= 1) currentRatio = 0;
   const tr = tracks.find(t => t.id === activeTrackId);
   if (tr && is3DMode) { setStatus('🔄 Préchargement des tuiles 3D...'); await warmupTiles(tr); setStatus(''); }
+  // Repart de la position caméra actuelle (zoom/orientation) au lieu de
+  // l'ancienne valeur figée lors de la sélection de la trace : évite le
+  // saut de zoom au lancement si tu as zoomé/dézoomé entre-temps.
   if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); }
   isPlaying = true; lastFrameTime = 0;
   acquireWakeLock();
@@ -1358,6 +1530,8 @@ function pauseTrack() {
   document.getElementById('btnPlay').textContent = '▶'; document.getElementById('btnPlay').classList.remove('active');
   document.getElementById('btnCinemaPlay').textContent = '▶ Jouer';
   if (playAnimationId) cancelAnimationFrame(playAnimationId);
+  // Retire la marge caméra (ajoutée en 3D pendant la lecture) pour ne pas
+  // fausser un recentrage/zoom manuel une fois la lecture arrêtée.
   if (map && !isRecording) map.easeTo({ padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 300 });
 }
 document.getElementById('btnPlay').onclick = () => isPlaying ? pauseTrack() : playTrack();
@@ -1379,6 +1553,8 @@ function sortAndRenderTracks() {
     div.innerHTML = `<span class="swatch" style="background:${t.color}"></span><div class="track-main"><div class="track-name">${t.name}</div><div class="track-info">${t.data.totalDist.toFixed(1)} km</div></div><div class="track-actions"><button class="tg">👁️</button><button class="del">✕</button></div>`;
     div.querySelector('.tg').onclick = (e) => { e.stopPropagation(); t.visible = !t.visible; renderTrackOnMap(t); sortAndRenderTracks(); };
     div.querySelector('.del').onclick = (e) => { e.stopPropagation(); if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getLayer(t.id+'-hit'))map.removeLayer(t.id+'-hit');if(map.getSource(t.id))map.removeSource(t.id);} tracks = tracks.filter(x => x.id !== t.id); if(activeTrackId === t.id) activeTrackId = tracks[0]?.id || null; if(activeTrackId) setActiveTrack(activeTrackId); sortAndRenderTracks(); fitAll(); };
+    // Double-clic pour renommer manuellement (utile si le lieu détecté
+    // automatiquement au chargement ne convient pas).
     div.querySelector('.track-name').ondblclick = (e) => {
       e.stopPropagation();
       const newName = prompt('Renommer la sortie :', t.name);
@@ -1410,7 +1586,7 @@ function haversine(lat1, lon1, lat2, lon2) {
   return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2));
 }
 function getLookaheadBearing(pts, idx, curDistKm) {
-  const LOOKAHEAD_KM = 0.02;
+  const LOOKAHEAD_KM = 0.02; // 20 m : assez pour lisser le bruit GPS, assez peu pour rester réactif
   const targetDist = curDistKm + LOOKAHEAD_KM;
   let j = idx;
   while (j < pts.length - 1 && pts[j].dist < targetDist) j++;
