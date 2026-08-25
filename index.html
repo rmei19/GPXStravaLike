@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.30</title>
+<title>GPX Compare v3.31</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -316,7 +316,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.30</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.31</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Export & Clé</button>
@@ -377,7 +377,7 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.30</div>
+      <div id="cinema-watermark">GPX Compare v3.31</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -1598,17 +1598,33 @@ function updateTrackLabels() {
   if (!map) return;
   const visibleTracks = tracks.filter(t => t.visible);
   if (visibleTracks.length < 2 || isPlaying || isCinemaMode) return;
+
+  // Regroupe les sorties par lieu (extrait de "date - lieu - sport") pour
+  // cumuler leurs stats en une seule étiquette au lieu d'en empiler plusieurs
+  // au même endroit.
+  const groups = new Map(); // clé normalisée -> { label, tracks: [] }
   visibleTracks.forEach(t => {
-    const pts = t.data.points;
+    const lieu = extractLieu(t.name);
+    const key = lieu.trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, { label: lieu, tracks: [] });
+    groups.get(key).tracks.push(t);
+  });
+
+  groups.forEach(({ label, tracks: groupTracks }) => {
+    const pts = groupTracks[0].data.points;
     if (!pts.length) return;
     const mid = pts[Math.floor(pts.length / 2)]; // point réel du tracé, pas un centroïde qui pourrait tomber hors parcours
-    const lieu = extractLieu(t.name);
-    const distTxt = t.data.totalDist.toFixed(1) + ' km';
-    const dplusTxt = '+' + Math.round(t.data.totalDplus) + ' m';
-    const tempsTxt = t.data.totalElapsedSec !== null ? formatDuration(t.data.totalElapsedSec) : null;
+    const totalDist = groupTracks.reduce((s, t) => s + t.data.totalDist, 0);
+    const totalDplus = groupTracks.reduce((s, t) => s + t.data.totalDplus, 0);
+    const totalTemps = groupTracks.every(t => t.data.totalElapsedSec !== null)
+      ? groupTracks.reduce((s, t) => s + t.data.totalElapsedSec, 0) : null;
+    const countTxt = groupTracks.length > 1 ? ` ×${groupTracks.length}` : '';
+    const distTxt = totalDist.toFixed(1) + ' km';
+    const dplusTxt = '+' + Math.round(totalDplus) + ' m';
+    const tempsTxt = totalTemps !== null ? formatDuration(totalTemps) : null;
     const el = document.createElement('div');
     el.className = 'track-label';
-    el.innerHTML = `<div class="track-label-place">${lieu}</div><div class="track-label-stats">${distTxt} · ${dplusTxt}${tempsTxt ? ' · ' + tempsTxt : ''}</div>`;
+    el.innerHTML = `<div class="track-label-place">${label}${countTxt}</div><div class="track-label-stats">${distTxt} · ${dplusTxt}${tempsTxt ? ' · ' + tempsTxt : ''}</div>`;
     const marker = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([mid.lon, mid.lat]).addTo(map);
     trackLabelMarkers.push(marker);
   });
