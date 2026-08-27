@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.33</title>
+<title>GPX Compare v3.34</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -133,6 +133,7 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 /* Drag & Drop & Status */
 #drop { margin:6px 10px; padding:8px; border:2px dashed var(--border-color); border-radius:8px; text-align:center; background:var(--bg-card); color:var(--text-sub); font-size:13px; flex:none }
 #drop.drag { border-color:var(--accent); background:var(--bg-panel) }
+#side.drag { outline:3px dashed var(--accent); outline-offset:-3px; background:var(--bg-panel) }
 #status { font-size:12px; margin:0 10px 4px; color:var(--text-sub); min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:none }
 
 /* Layout */
@@ -221,6 +222,17 @@ body.cinema-mode #side {
   display: none !important;
 }
 
+/* Exception : pendant un export, on a besoin de voir l'avancement même en
+   mode Cinéma (c'est justement là que la plupart des exports démarrent) —
+   sans ça, les messages "Calcul... / Assemblage..." étaient invisibles du
+   début à la fin du rendu. */
+body.cinema-mode.is-recording #status {
+  display: block !important;
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.7); color: #fff; padding: 6px 16px; border-radius: 20px;
+  z-index: 2500; max-width: 90%; text-align: center; margin: 0; font-size: 13px;
+}
+
 #cinema-overlay {
   display: none; position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
   background: rgba(30, 31, 35, 0.85); backdrop-filter: blur(8px); padding: 10px 20px;
@@ -258,6 +270,22 @@ body.cinema-mode #cinema-watermark { display:block; }
 }
 #record-indicator.active { display: flex; }
 #record-indicator button { background: white; color: #e53935; padding: 5px 12px; border-radius: 20px; font-size: 12px; border: none; cursor: pointer; font-weight: bold;}
+
+/* Bannière de téléchargement : beaucoup de navigateurs mobiles bloquent
+   silencieusement un a.click() déclenché par script hors d'un geste direct
+   de l'utilisateur (ce qui est le cas ici, l'export finit dans un callback
+   asynchrone) — le téléchargement automatique reste tenté, mais ce lien
+   garantit une solution de repli qui marche partout, tap direct de la personne. */
+#download-ready-banner {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(30,31,35,0.95); color: white; padding: 10px 16px;
+  border-radius: 30px; display: flex; align-items: center; gap: 12px;
+  z-index: 9999; font-weight: 600; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.2); max-width: 92vw;
+}
+#download-ready-banner.hidden { display: none; }
+#download-ready-banner a { background: var(--accent); color: white; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: bold; text-decoration: none; white-space: nowrap; }
+#download-ready-banner button { background: transparent; color: white; border: none; font-size: 16px; cursor: pointer; padding: 2px 4px; }
 
 .mobile-only { display:none }
 
@@ -316,7 +344,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.33</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.34</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -378,12 +406,18 @@ body.cinema-mode #cinema-watermark { display:block; }
   <button id="btnStopRecordGlobal">Arrêter ⏹</button>
 </div>
 
+<div id="download-ready-banner" class="hidden">
+  <span>✅ Vidéo prête</span>
+  <a id="downloadReadyLink" download>📥 Télécharger</a>
+  <button id="btnDismissDownloadBanner">✕</button>
+</div>
+
 <div id="layout">
   <div id="main-view">
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.33</div>
+      <div id="cinema-watermark">GPX Compare v3.34</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -871,6 +905,7 @@ document.getElementById('startExportBtn').addEventListener('click', () => {
 });
 
 document.getElementById('btnStopRecordGlobal').addEventListener('click', stopRecording);
+document.getElementById('btnDismissDownloadBanner').addEventListener('click', () => document.getElementById('download-ready-banner').classList.add('hidden'));
 
 // Mesure combien de temps l'appareil met à décoder un JPEG et le dessiner
 // sur le canvas d'export — c'est cette étape (pas le calcul de la caméra)
@@ -917,6 +952,8 @@ async function startRecording() {
   const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
 
   isRecording = true;
+  document.body.classList.add('is-recording');
+  document.getElementById('download-ready-banner').classList.add('hidden');
   acquireWakeLock();
   recordIndicator.classList.add('active');
   if (!exportCanvas) { exportCanvas = document.createElement('canvas'); exportCtx = exportCanvas.getContext('2d'); }
@@ -988,12 +1025,35 @@ async function startRecording() {
     mediaRecorder.onstop = () => {
       const blob = new Blob(chunks, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const filename = `${activeTr.name.replace(/\.[^/.]+$/, "")}_3d.webm`;
+
+      // Tentative de téléchargement automatique (fonctionne bien sur la
+      // plupart des ordinateurs). Sur mobile, beaucoup de navigateurs
+      // bloquent silencieusement un a.click() déclenché hors d'un geste
+      // direct de la personne (ce qui est le cas ici, dans ce callback
+      // asynchrone) — d'où des comportements différents desktop/mobile.
+      try {
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) { console.error('Téléchargement automatique impossible :', e); }
+
+      // Solution de repli garantie, quel que soit le navigateur : un vrai
+      // lien affiché à l'écran, que la personne tape elle-même.
+      const dlLink = document.getElementById('downloadReadyLink');
+      dlLink.href = url; dlLink.download = filename;
+      document.getElementById('download-ready-banner').classList.remove('hidden');
+      // L'URL n'est révoquée qu'après un long délai (le temps de taper le
+      // lien manuellement si le téléchargement auto a été bloqué), pas
+      // immédiatement après le clic auto.
+      setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+
       setStatus(`Export terminé : ${frameBlobs.length}/${totalFrames + 1} images${skippedCount > 0 ? ` (${skippedCount} ignorée(s))` : ''}`);
+      // Laisse le message final visible quelques secondes avant de rendre la
+      // main au mode Cinéma normal (sinon il disparaît instantanément).
+      setTimeout(() => document.body.classList.remove('is-recording'), 4000);
     };
 
     mediaRecorder.start();
@@ -1050,15 +1110,20 @@ function waitForMapSettled(maxWaitMs) {
 }
 
 function stopRecording() {
-  if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+  const willFireOnStop = mediaRecorder && mediaRecorder.state === 'recording';
+  if (willFireOnStop) mediaRecorder.stop();
   pauseTrack();
   isRecording = false;
   releaseWakeLock();
   recordIndicator.classList.remove('active');
+  // Si onstop va se déclencher, c'est lui qui retire la classe après avoir
+  // affiché le message final ; sinon (annulé avant tout enregistrement), on
+  // la retire tout de suite pour ne pas la laisser bloquée.
+  if (!willFireOnStop) document.body.classList.remove('is-recording');
 }
 
 // Logique GPX & Animation Lissée
-const colors = ['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00','#00897b','#6d4c41','#3949ab','#d81b60','#546e7a'];
+const colors = ['#ff1744','#00e5ff','#76ff03','#ffea00','#ff6d00','#d500f9','#f50057','#00e676','#2979ff','#ff3d00'];
 let tracks = [], colorIndex = 0, activeTrackId = null;
 let isPlaying = false, playAnimationId = null, currentRatio = 0, lastFrameTime = 0;
 
@@ -1086,6 +1151,13 @@ document.getElementById('fileInput').addEventListener('change', e => { loadFiles
 document.getElementById('drop').addEventListener('drop', e => { e.preventDefault(); document.getElementById('drop').classList.remove('drag'); loadFiles([...e.dataTransfer.files]); });
 ['dragenter', 'dragover'].forEach(ev => document.getElementById('drop').addEventListener(ev, e => { e.preventDefault(); document.getElementById('drop').classList.add('drag'); }));
 ['dragleave', 'drop'].forEach(ev => document.getElementById('drop').addEventListener(ev, e => document.getElementById('drop').classList.remove('drag')));
+
+// Glisser-déposer accepté aussi directement sur le panneau "Sorties" — plus
+// naturel que de devoir viser la petite zone dédiée sur l'onglet Fichiers.
+const sideDropTarget = document.getElementById('side');
+sideDropTarget.addEventListener('drop', e => { e.preventDefault(); sideDropTarget.classList.remove('drag'); loadFiles([...e.dataTransfer.files]); });
+['dragenter', 'dragover'].forEach(ev => sideDropTarget.addEventListener(ev, e => { e.preventDefault(); sideDropTarget.classList.add('drag'); }));
+['dragleave', 'drop'].forEach(ev => sideDropTarget.addEventListener(ev, e => sideDropTarget.classList.remove('drag')));
 
 function loadFiles(files) { files.filter(f => f.name.toLowerCase().endsWith('.gpx') || !f.name.includes('.')).forEach(readFile); }
 function readFile(file) {
