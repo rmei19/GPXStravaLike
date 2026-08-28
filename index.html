@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.36</title>
+<title>GPX Compare v3.37</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -158,7 +158,7 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 .track-label-stats { font-size:12px; font-weight:600; color:#ddd; margin-top:2px; }
 @media(max-width:700px){ .track-label-place { font-size:14px; } .track-label-stats { font-size:11px; } }
 #minimapCanvas { width:100%; height:100%; display:block }
-@media(max-width:700px){ #minimap-wrap { width:110px; height:85px; bottom:8px } #cinema-overlay { bottom:130px; padding:8px 14px; gap:10px; } }
+@media(max-width:700px){ #minimap-wrap { width:110px; height:85px; bottom:8px } #cinema-overlay { bottom:100px; padding:8px 14px; gap:10px; } }
 
 /* Stats dénivelé/pente en direct (option, cachées par défaut) */
 .live-stat { display:none }
@@ -223,7 +223,7 @@ body.cinema-mode #side {
 }
 
 #cinema-overlay {
-  display: none; position: absolute; bottom: 175px; left: 50%; transform: translateX(-50%);
+  display: none; position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%);
   background: rgba(30, 31, 35, 0.85); backdrop-filter: blur(8px); padding: 10px 20px;
   border-radius: 50px; z-index: 2000; border: 1px solid rgba(255,255,255,0.2);
   align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -252,7 +252,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 
 /* Indicateur enregistrement */
 #record-indicator {
-  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 55px; left: 50%; transform: translateX(-50%);
   background: rgba(229, 57, 53, 0.92); color: white; padding: 8px 16px;
   border-radius: 24px; display: none; align-items: center; gap: 12px;
   z-index: 9999; font-weight: bold; font-size: 13px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
@@ -262,7 +262,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 #record-indicator button { background: white; color: #e53935; padding: 5px 12px; border-radius: 20px; font-size: 12px; border: none; cursor: pointer; font-weight: bold; flex-shrink:0; }
 #recordIndicatorText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media(max-width:700px){
-  #record-indicator { flex-direction: column; gap: 6px; padding: 8px 14px; top: 8px; }
+  #record-indicator { flex-direction: column; gap: 6px; padding: 8px 14px; top: 48px; }
   #recordIndicatorText { font-size: 11.5px; max-width: 88vw; }
 }
 
@@ -339,7 +339,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.36</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.37</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -412,7 +412,7 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.36</div>
+      <div id="cinema-watermark">GPX Compare v3.37</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -1592,20 +1592,47 @@ async function warmupTiles(tr) {
 // vidéo (sinon Android coupe l'écran en plein milieu d'un enregistrement).
 let wakeLock = null;
 async function acquireWakeLock() {
+  startNoSleepFallback(); // solution de secours, cumulée dans tous les cas (inoffensif si l'API native marche aussi)
   if (!('wakeLock' in navigator) || wakeLock) return;
   try {
     wakeLock = await navigator.wakeLock.request('screen');
     wakeLock.addEventListener('release', () => { wakeLock = null; });
-  } catch (e) { /* refusé (onglet en arrière-plan, etc.) — pas bloquant */ }
+  } catch (e) { console.warn('Wake Lock natif refusé, on repose sur la solution de secours :', e); }
 }
 function releaseWakeLock() {
   if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  stopNoSleepFallback();
 }
 // Le wake lock est automatiquement relâché par le navigateur quand l'onglet
 // perd le focus ; on le redemande au retour si la lecture est toujours en cours.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && (isPlaying || isRecording)) acquireWakeLock();
 });
+
+// Solution de secours anti-veille : certains navigateurs (Brave sur Android
+// notamment) sont connus pour restreindre l'API Wake Lock native, qui échoue
+// alors silencieusement. Astuce classique et largement compatible : une
+// courte vidéo muette générée localement (pas de fichier externe, juste un
+// canvas capturé en flux), lue en boucle — la plupart des navigateurs mobiles
+// n'éteignent pas l'écran tant qu'une vidéo est activement en lecture.
+let noSleepVideo = null;
+function ensureNoSleepVideo() {
+  if (noSleepVideo) return noSleepVideo;
+  const canvas = document.createElement('canvas');
+  canvas.width = 2; canvas.height = 2;
+  canvas.getContext('2d').fillRect(0, 0, 2, 2);
+  const stream = canvas.captureStream(1);
+  const video = document.createElement('video');
+  video.muted = true; video.loop = true; video.playsInline = true;
+  video.setAttribute('muted', ''); video.setAttribute('playsinline', ''); video.setAttribute('webkit-playsinline', '');
+  video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;bottom:0;right:0;';
+  video.srcObject = stream;
+  document.body.appendChild(video);
+  noSleepVideo = video;
+  return video;
+}
+function startNoSleepFallback() { ensureNoSleepVideo().play().catch(() => {}); }
+function stopNoSleepFallback() { if (noSleepVideo) noSleepVideo.pause(); }
 
 async function playTrack() {
   if (currentRatio >= 1) currentRatio = 0;
