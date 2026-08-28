@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.35</title>
+<title>GPX Compare v3.36</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -158,7 +158,7 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 .track-label-stats { font-size:12px; font-weight:600; color:#ddd; margin-top:2px; }
 @media(max-width:700px){ .track-label-place { font-size:14px; } .track-label-stats { font-size:11px; } }
 #minimapCanvas { width:100%; height:100%; display:block }
-@media(max-width:700px){ #minimap-wrap { width:110px; height:85px; bottom:8px } }
+@media(max-width:700px){ #minimap-wrap { width:110px; height:85px; bottom:8px } #cinema-overlay { bottom:130px; padding:8px 14px; gap:10px; } }
 
 /* Stats dénivelé/pente en direct (option, cachées par défaut) */
 .live-stat { display:none }
@@ -223,7 +223,7 @@ body.cinema-mode #side {
 }
 
 #cinema-overlay {
-  display: none; position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  display: none; position: absolute; bottom: 175px; left: 50%; transform: translateX(-50%);
   background: rgba(30, 31, 35, 0.85); backdrop-filter: blur(8px); padding: 10px 20px;
   border-radius: 50px; z-index: 2000; border: 1px solid rgba(255,255,255,0.2);
   align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
@@ -339,7 +339,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.35</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.36</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -412,7 +412,7 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div id="map-container">
       <div id="map"></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.35</div>
+      <div id="cinema-watermark">GPX Compare v3.36</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -999,6 +999,7 @@ async function startRecording() {
       if (!blob) { skippedCount++; console.error(`Frame ${i}/${totalFrames} ignorée (toBlob a échoué deux fois)`); continue; }
       frameBlobs.push(blob);
       setStatus(`🔄 Calcul de la vidéo… frame ${i}/${totalFrames} (${Math.round((i / totalFrames) * 100)}%)`);
+      if (i % 50 === 0) acquireWakeLock(); // renouvelle le verrou périodiquement sur un rendu long, au cas où le navigateur l'aurait relâché silencieusement
     }
     if (skippedCount > 0) console.warn(`Export : ${skippedCount} frame(s) ignorée(s) sur ${totalFrames + 1} calculées (${frameBlobs.length} conservées).`);
     console.log(`Phase 1 terminée : ${frameBlobs.length}/${totalFrames + 1} frames obtenues, dernier ratio=${currentRatio.toFixed(4)}, isRecording=${isRecording}`);
@@ -1073,6 +1074,7 @@ async function startRecording() {
       }
       if (bmp) bmp.close();
       setStatus(`🔴 Assemblage vidéo… frame ${i + 1}/${frameBlobs.length} (${Math.round(((i + 1) / frameBlobs.length) * 100)}%)`);
+      if (i % 50 === 0) acquireWakeLock();
     }
     // Laisse l'encodeur digérer la toute dernière frame avant d'arrêter :
     // stopper trop vite après le dernier requestFrame() pouvait tronquer la
@@ -1752,11 +1754,15 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
   return (Math.atan2(y, x)*180/Math.PI + 360) % 360;
 }
 function setStatus(s) {
-  document.getElementById('status').textContent = s;
+  const statusEl = document.getElementById('status');
+  if (statusEl) statusEl.textContent = s;
   // Pendant un export, le message de progression s'affiche directement dans
   // la bannière rouge déjà visible (plutôt que dans #status, invisible en
   // mode Cinéma et qui finissait par se superposer à cette même bannière).
-  if (isRecording) document.getElementById('recordIndicatorText').textContent = s;
+  if (isRecording) {
+    const ri = document.getElementById('recordIndicatorText');
+    if (ri) ri.textContent = s;
+  }
 }
 
 initMap();
