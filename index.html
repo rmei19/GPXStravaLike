@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.37</title>
+<title>GPX Compare v3.38</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -152,13 +152,24 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 #minimap-wrap.pos-left { left:12px }
 #minimap-wrap.pos-right { right:12px }
 
+/* Profil de dénivelé (option), juste au-dessus de la mini-carte, même coin */
+#mini-profile-wrap { position:absolute; bottom:130px; width:150px; height:52px; background:rgba(30,31,35,0.85); border:1px solid rgba(255,255,255,0.25); border-radius:8px; z-index:900; overflow:hidden; box-shadow:0 4px 15px rgba(0,0,0,0.4); }
+#mini-profile-wrap.hidden { display:none }
+#mini-profile-wrap.pos-left { left:12px }
+#mini-profile-wrap.pos-right { right:12px }
+#miniProfileCanvas { width:100%; height:100%; display:block }
+
 /* Étiquettes lieu + stats sur la carte, en vue d'ensemble multi-sorties */
 .track-label { background:rgba(20,20,20,0.88); color:#fff; padding:7px 12px; border-radius:9px; white-space:nowrap; border:1px solid rgba(255,255,255,0.25); box-shadow:0 3px 10px rgba(0,0,0,0.45); transform:translateY(-8px); pointer-events:none; }
 .track-label-place { font-size:16px; font-weight:700; line-height:1.2; }
 .track-label-stats { font-size:12px; font-weight:600; color:#ddd; margin-top:2px; }
 @media(max-width:700px){ .track-label-place { font-size:14px; } .track-label-stats { font-size:11px; } }
 #minimapCanvas { width:100%; height:100%; display:block }
-@media(max-width:700px){ #minimap-wrap { width:110px; height:85px; bottom:8px } #cinema-overlay { bottom:100px; padding:8px 14px; gap:10px; } }
+@media(max-width:700px){
+  #minimap-wrap { width:110px; height:85px; bottom:8px }
+  #mini-profile-wrap { width:110px; height:40px; bottom:98px }
+  #cinema-overlay { bottom:100px; padding:8px 14px; gap:10px; }
+}
 
 /* Stats dénivelé/pente en direct (option, cachées par défaut) */
 .live-stat { display:none }
@@ -339,7 +350,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.37</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.38</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -384,6 +395,7 @@ body.cinema-mode #cinema-watermark { display:block; }
         <option value="left">🗺️ Mini-carte : bas-gauche</option>
         <option value="right">🗺️ Mini-carte : bas-droite</option>
       </select>
+      <button id="btnMiniProfile" title="Profil de dénivelé au-dessus de la mini-carte">📈 Profil altitude</button>
     </div>
     <div class="tb-group">
       <button id="btnCinema">🎦 Mode Cinéma</button>
@@ -411,9 +423,10 @@ body.cinema-mode #cinema-watermark { display:block; }
   <div id="main-view">
     <div id="map-container">
       <div id="map"></div>
+      <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.37</div>
-      <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span></div>
+      <div id="cinema-watermark">GPX Compare v3.38</div>
+      <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2" style="grid-column:1 / span 2">--'--/km</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
         <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span></div>
@@ -469,6 +482,7 @@ body.cinema-mode #cinema-watermark { display:block; }
           <span class="live-stat">Temps: <b id="stTemps">--:--</b></span>
           <span class="live-stat">D+: <b id="stDplus">0 m</b></span>
           <span class="live-stat">Pente: <b id="stPente">--%</b></span>
+          <span class="live-stat">Allure: <b id="stAllure">--'--/km</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
         </div>
       </div>
@@ -708,6 +722,7 @@ document.getElementById('minimapPosSelect').addEventListener('change', (e) => {
   minimapWrap.classList.toggle('pos-right', minimapPos === 'right');
   if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); }
   updateCinemaLiveStatsVisibility();
+  updateMiniProfileVisibility(); // dépend de l'état de la mini-carte (même coin, masqué si elle l'est)
 });
 
 function resizeMinimap() {
@@ -770,7 +785,92 @@ function redrawMinimap() {
   mctx.beginPath(); mctx.arc(mx, my, 4 * window.devicePixelRatio, 0, 2 * Math.PI);
   mctx.fillStyle = '#00aaff'; mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.5 * window.devicePixelRatio; mctx.fill(); mctx.stroke();
 }
-window.addEventListener('resize', () => { if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); } });
+window.addEventListener('resize', () => { if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); } if (showMiniProfile) { resizeMiniProfile(); drawMiniProfileRoute(); } });
+
+// Profil de dénivelé (option), au-dessus de la mini-carte — même logique de
+// cache que la mini-carte : la courbe statique n'est dessinée qu'une fois,
+// seul le repère de position est redessiné à chaque frame.
+let showMiniProfile = false;
+const miniProfileWrap = document.getElementById('mini-profile-wrap');
+const miniProfileCanvas = document.getElementById('miniProfileCanvas');
+const mpCtx = miniProfileCanvas.getContext('2d');
+let miniProfileRouteCanvas = null, miniProfileRouteCtx = null;
+let miniProfileBounds = null; // { minEle, maxEle, minDist, maxDist }
+
+function updateMiniProfileVisibility() {
+  // N'a de sens qu'accolé à la mini-carte : pas de mini-carte, pas de profil.
+  const visible = showMiniProfile && minimapPos !== 'off';
+  miniProfileWrap.classList.toggle('hidden', !visible);
+  miniProfileWrap.classList.toggle('pos-left', minimapPos === 'left');
+  miniProfileWrap.classList.toggle('pos-right', minimapPos === 'right');
+  if (visible) { resizeMiniProfile(); drawMiniProfileRoute(); }
+}
+
+document.getElementById('btnMiniProfile').addEventListener('click', () => {
+  showMiniProfile = !showMiniProfile;
+  document.getElementById('btnMiniProfile').classList.toggle('active', showMiniProfile);
+  updateMiniProfileVisibility();
+});
+
+function resizeMiniProfile() {
+  const rect = miniProfileWrap.getBoundingClientRect();
+  if (!rect.width) return;
+  miniProfileCanvas.width = rect.width * window.devicePixelRatio;
+  miniProfileCanvas.height = rect.height * window.devicePixelRatio;
+}
+
+function drawMiniProfileRoute() {
+  if (!showMiniProfile || minimapPos === 'off') return;
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!tr || !tr.data.hasElevation || !tr.data.points.length) { mpCtx.clearRect(0, 0, miniProfileCanvas.width, miniProfileCanvas.height); miniProfileBounds = null; return; }
+  const pts = tr.data.points;
+  miniProfileBounds = { minEle: tr.data.minEle, maxEle: tr.data.maxEle, minDist: pts[0].dist, maxDist: pts[pts.length - 1].dist };
+
+  if (!miniProfileRouteCanvas) { miniProfileRouteCanvas = document.createElement('canvas'); miniProfileRouteCtx = miniProfileRouteCanvas.getContext('2d'); }
+  miniProfileRouteCanvas.width = miniProfileCanvas.width; miniProfileRouteCanvas.height = miniProfileCanvas.height;
+  const c = miniProfileRouteCtx, w = miniProfileRouteCanvas.width, h = miniProfileRouteCanvas.height;
+  const padTop = 4 * window.devicePixelRatio, padBottom = 3 * window.devicePixelRatio;
+  const { minEle, maxEle, minDist, maxDist } = miniProfileBounds;
+  const eleSpan = (maxEle - minEle) || 1, distSpan = (maxDist - minDist) || 1;
+  const px = d => ((d - minDist) / distSpan) * w;
+  const py = e => h - padBottom - ((e - minEle) / eleSpan) * (h - padTop - padBottom);
+
+  c.clearRect(0, 0, w, h);
+  c.beginPath();
+  c.moveTo(px(pts[0].dist), h);
+  pts.forEach(p => c.lineTo(px(p.dist), py(p.ele !== null ? p.ele : minEle)));
+  c.lineTo(px(pts[pts.length - 1].dist), h);
+  c.closePath();
+  const grad = c.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(255,109,0,0.55)'); grad.addColorStop(1, 'rgba(255,109,0,0.08)');
+  c.fillStyle = grad; c.fill();
+  c.beginPath();
+  pts.forEach((p, i) => { const x = px(p.dist), y = py(p.ele !== null ? p.ele : minEle); i === 0 ? c.moveTo(x, y) : c.lineTo(x, y); });
+  c.strokeStyle = '#ff6d00'; c.lineWidth = 1.5 * window.devicePixelRatio; c.stroke();
+
+  redrawMiniProfile();
+}
+
+function redrawMiniProfile() {
+  if (!showMiniProfile || minimapPos === 'off' || !miniProfileBounds || !miniProfileRouteCanvas) return;
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!tr || !tr.data.points.length) return;
+  const w = miniProfileCanvas.width, h = miniProfileCanvas.height;
+  mpCtx.clearRect(0, 0, w, h);
+  mpCtx.drawImage(miniProfileRouteCanvas, 0, 0);
+
+  const pts = tr.data.points;
+  let p1, p2, f = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (currentRatio >= pts[i].fraction && currentRatio <= pts[i+1].fraction) { p1 = pts[i]; p2 = pts[i+1]; f = (currentRatio - p1.fraction) / (p2.fraction - p1.fraction || 1); break; }
+  }
+  if (!p1) { p1 = pts[pts.length-1]; p2 = p1; }
+  const dist = p1.dist + (p2.dist - p1.dist) * f;
+  const { minDist, maxDist } = miniProfileBounds;
+  const x = ((dist - minDist) / ((maxDist - minDist) || 1)) * w;
+  mpCtx.beginPath(); mpCtx.moveTo(x, 0); mpCtx.lineTo(x, h);
+  mpCtx.strokeStyle = '#00aaff'; mpCtx.lineWidth = 2 * window.devicePixelRatio; mpCtx.stroke();
+}
 
 
 // Cinéma & Export Vidéo
@@ -781,7 +881,7 @@ let isCinemaMode = false;
 function toggleCinemaMode(force = null) {
   isCinemaMode = force !== null ? force : !isCinemaMode;
   document.body.classList.toggle('cinema-mode', isCinemaMode);
-  setTimeout(() => { if (map) map.resize(); resizeCanvas(); if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); } }, 300);
+  setTimeout(() => { if (map) map.resize(); resizeCanvas(); if (minimapPos !== 'off') { resizeMinimap(); drawMinimapRoute(); } if (showMiniProfile) { resizeMiniProfile(); drawMiniProfileRoute(); } }, 300);
   updateTrackLabels();
 }
 btnCinema.addEventListener('click', () => toggleCinemaMode());
@@ -848,26 +948,35 @@ function drawExportFrame() {
     exportCtx.clip();
     exportCtx.drawImage(minimapCanvas, x, y, w, h);
     exportCtx.restore();
+
+    if (showMiniProfile && miniProfileBounds) {
+      const ph = 52 * dpr, gap = 8 * dpr;
+      const py = y - gap - ph;
+      exportCtx.save();
+      exportCtx.fillStyle = 'rgba(30,31,35,0.85)'; exportCtx.strokeStyle = 'rgba(255,255,255,0.25)'; exportCtx.lineWidth = 1;
+      roundRectPath(exportCtx, x, py, w, ph, 8 * dpr); exportCtx.fill(); exportCtx.stroke();
+      exportCtx.clip();
+      exportCtx.drawImage(miniProfileCanvas, x, py, w, ph);
+      exportCtx.restore();
+    }
   }
 
   if (showLiveStats) {
-    // Grille 2x2 compacte (comme le badge à l'écran) plutôt qu'une ligne
-    // large : sur un export portrait étroit, une ligne "8.4 km · 1:23:36 ·
-    // 271 m · +3.6%" déborde de son coin et finit par recouvrir la
-    // mini-carte quand même — justement là où le point de fin se trouve
-    // souvent (proche du départ), le cachant complètement.
+    // Grille 2x2 compacte (comme le badge à l'écran) + 3e ligne pour
+    // l'allure, centrée sur toute la largeur.
     const cells = [
       document.getElementById('stDist').textContent, document.getElementById('stTemps').textContent,
       document.getElementById('stDplus').textContent, document.getElementById('stPente').textContent
     ];
+    const allureTxt = document.getElementById('stAllure').textContent;
     exportCtx.save();
     const fontSize = 13 * dpr;
     exportCtx.font = `600 ${fontSize}px -apple-system, sans-serif`;
     exportCtx.textBaseline = 'middle';
     const padX = 10 * dpr, padY = 6 * dpr, colGap = 10 * dpr, rowH = fontSize + 4 * dpr, margin = 12 * dpr;
     const colW = Math.max(exportCtx.measureText(cells[0]).width, exportCtx.measureText(cells[2]).width, exportCtx.measureText(cells[1]).width, exportCtx.measureText(cells[3]).width);
-    const boxW = padX * 2 + colW * 2 + colGap;
-    const boxH = padY * 2 + rowH * 2;
+    const boxW = Math.max(padX * 2 + colW * 2 + colGap, padX * 2 + exportCtx.measureText(allureTxt).width);
+    const boxH = padY * 2 + rowH * 3;
     // Coin opposé à la mini-carte pour ne pas se chevaucher (comme à l'écran)
     const oppositeCorner = minimapPos === 'left' ? 'right' : 'left';
     const bx = oppositeCorner === 'left' ? margin : exportCanvas.width - boxW - margin;
@@ -879,6 +988,7 @@ function drawExportFrame() {
     exportCtx.fillText(cells[1], bx + padX + colW + colGap, by + padY + rowH / 2);
     exportCtx.fillText(cells[2], bx + padX, by + padY + rowH + rowH / 2);
     exportCtx.fillText(cells[3], bx + padX + colW + colGap, by + padY + rowH + rowH / 2);
+    exportCtx.fillText(allureTxt, bx + padX, by + padY + rowH * 2 + rowH / 2);
     exportCtx.restore();
   }
 }
@@ -1323,7 +1433,7 @@ function applyTrim(t) {
     // (playTrack ne l'a donc jamais fait), ces variables gardent le zoom
     // d'AVANT le premier fitAll() et le rognage semble "dézoomer" la carte.
     if (map) { currentCameraZoom = map.getZoom(); currentCameraBearing = map.getBearing(); currentCameraPitch = map.getPitch(); }
-    drawMinimapRoute(); setTrackPositionByRatio(0);
+    drawMinimapRoute(); drawMiniProfileRoute(); setTrackPositionByRatio(0);
     updateTrackLabels(); // stats recalculées après rognage
   } else {
     sortAndRenderTracks();
@@ -1409,7 +1519,7 @@ function setActiveTrack(id) {
   document.getElementById('trimStartValue').textContent = (tr.trimStart || 0) + '%';
   document.getElementById('trimEndValue').textContent = (tr.trimEnd || 0) + '%';
   updateTrimInfo(tr);
-  sortAndRenderTracks(); drawElevationProfile(); drawMinimapRoute(); setTrackPositionByRatio(0);
+  sortAndRenderTracks(); drawElevationProfile(); drawMinimapRoute(); drawMiniProfileRoute(); setTrackPositionByRatio(0);
 }
 
 function drawElevationProfile() {
@@ -1533,18 +1643,21 @@ function setTrackPositionByRatio(ratio) {
     const dplusTxt = Math.round(dplus) + ' m';
     const penteTxt = (currentSlope >= 0 ? '+' : '') + currentSlope.toFixed(1) + '%';
     const distTxt = dist.toFixed(1) + ' km';
-    let tempsTxt = '--:--';
+    let tempsTxt = '--:--', elapsedForPace = null;
     if (p1.elapsedSec !== null && p2.elapsedSec !== null) {
-      const elapsed = p1.elapsedSec + (p2.elapsedSec - p1.elapsedSec) * f;
-      tempsTxt = formatDuration(elapsed);
+      elapsedForPace = p1.elapsedSec + (p2.elapsedSec - p1.elapsedSec) * f;
+      tempsTxt = formatDuration(elapsedForPace);
     }
+    const allureTxt = formatPace(elapsedForPace, dist);
     document.getElementById('stDplus').textContent = dplusTxt; document.getElementById('c-dplus2').textContent = dplusTxt;
     document.getElementById('stPente').textContent = penteTxt; document.getElementById('c-pente2').textContent = penteTxt;
     document.getElementById('stTemps').textContent = tempsTxt; document.getElementById('c-temps2').textContent = tempsTxt;
+    document.getElementById('stAllure').textContent = allureTxt; document.getElementById('c-allure2').textContent = allureTxt;
     document.getElementById('c-dist2').textContent = distTxt;
   }
 
   redrawMinimap();
+  redrawMiniProfile();
   drawElevationProfile();
 }
 
@@ -1774,6 +1887,13 @@ function formatDuration(sec) {
   sec = Math.max(0, Math.round(sec));
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
   return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+// Allure moyenne jusqu'ici (min/km), pas l'allure instantanée
+function formatPace(elapsedSec, distKm) {
+  if (!distKm || distKm <= 0 || elapsedSec === null) return '--\'--';
+  const paceSecPerKm = elapsedSec / distKm;
+  const m = Math.floor(paceSecPerKm / 60), s = Math.round(paceSecPerKm % 60);
+  return `${m}'${String(s).padStart(2,'0')}/km`;
 }
 function calculateBearing(lat1, lon1, lat2, lon2) {
   const y = Math.sin((lon2-lon1)*Math.PI/180)*Math.cos(lat2*Math.PI/180);
