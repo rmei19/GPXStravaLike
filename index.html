@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.38</title>
+<title>GPX Compare v3.41</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -250,7 +250,7 @@ body.cinema-mode #cinema-overlay { display: flex; }
    étroit, une ligne "8.4 km · 1:23:36 · 271 m · +3.6%" déborde largement de
    son coin et finit par recouvrir la mini-carte quand même — justement là où
    le point de fin se trouve souvent (proche du départ). */
-#cinema-live-stats { display:none; position:absolute; bottom:12px; background:rgba(30,31,35,0.85); color:#fff; font-size:12px; font-weight:600; padding:6px 10px; border-radius:10px; z-index:1000; border:1px solid rgba(255,255,255,0.2); font-variant-numeric:tabular-nums; grid-template-columns:1fr 1fr; gap:2px 10px; max-width:150px; }
+#cinema-live-stats { display:none; position:absolute; bottom:12px; background:rgba(30,31,35,0.85); color:#fff; font-size:12px; font-weight:600; padding:6px 10px; border-radius:10px; z-index:1000; border:1px solid rgba(255,255,255,0.2); font-variant-numeric:tabular-nums; grid-template-columns:1fr 1fr; gap:2px 10px; max-width:175px; }
 body.cinema-mode #cinema-live-stats:not(.hidden) { display:grid; }
 #cinema-live-stats.corner-left { left:12px }
 #cinema-live-stats.corner-right { right:12px }
@@ -350,7 +350,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.38</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.41</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -425,8 +425,8 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.38</div>
-      <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2" style="grid-column:1 / span 2">--'--/km</span></div>
+      <div id="cinema-watermark">GPX Compare v3.41</div>
+      <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
         <div id="cinema-stats"><span id="c-dist">0.0 km</span> | <span id="c-alt">-- m</span></div>
@@ -483,6 +483,7 @@ body.cinema-mode #cinema-watermark { display:block; }
           <span class="live-stat">D+: <b id="stDplus">0 m</b></span>
           <span class="live-stat">Pente: <b id="stPente">--%</b></span>
           <span class="live-stat">Allure: <b id="stAllure">--'--/km</b></span>
+          <span class="live-stat">FC: <b id="stHr">-- bpm</b></span>
           <span>Prog: <b id="stProg">0%</b></span>
         </div>
       </div>
@@ -962,20 +963,20 @@ function drawExportFrame() {
   }
 
   if (showLiveStats) {
-    // Grille 2x2 compacte (comme le badge à l'écran) + 3e ligne pour
-    // l'allure, centrée sur toute la largeur.
+    // Grille 2x3 compacte (comme le badge à l'écran) : Dist/Temps, D+/Pente,
+    // Allure/FC.
     const cells = [
       document.getElementById('stDist').textContent, document.getElementById('stTemps').textContent,
-      document.getElementById('stDplus').textContent, document.getElementById('stPente').textContent
+      document.getElementById('stDplus').textContent, document.getElementById('stPente').textContent,
+      document.getElementById('stAllure').textContent, document.getElementById('stHr').textContent
     ];
-    const allureTxt = document.getElementById('stAllure').textContent;
     exportCtx.save();
     const fontSize = 13 * dpr;
     exportCtx.font = `600 ${fontSize}px -apple-system, sans-serif`;
     exportCtx.textBaseline = 'middle';
     const padX = 10 * dpr, padY = 6 * dpr, colGap = 10 * dpr, rowH = fontSize + 4 * dpr, margin = 12 * dpr;
-    const colW = Math.max(exportCtx.measureText(cells[0]).width, exportCtx.measureText(cells[2]).width, exportCtx.measureText(cells[1]).width, exportCtx.measureText(cells[3]).width);
-    const boxW = Math.max(padX * 2 + colW * 2 + colGap, padX * 2 + exportCtx.measureText(allureTxt).width);
+    const colW = Math.max(...cells.map(c => exportCtx.measureText(c).width));
+    const boxW = padX * 2 + colW * 2 + colGap;
     const boxH = padY * 2 + rowH * 3;
     // Coin opposé à la mini-carte pour ne pas se chevaucher (comme à l'écran)
     const oppositeCorner = minimapPos === 'left' ? 'right' : 'left';
@@ -988,7 +989,8 @@ function drawExportFrame() {
     exportCtx.fillText(cells[1], bx + padX + colW + colGap, by + padY + rowH / 2);
     exportCtx.fillText(cells[2], bx + padX, by + padY + rowH + rowH / 2);
     exportCtx.fillText(cells[3], bx + padX + colW + colGap, by + padY + rowH + rowH / 2);
-    exportCtx.fillText(allureTxt, bx + padX, by + padY + rowH * 2 + rowH / 2);
+    exportCtx.fillText(cells[4], bx + padX, by + padY + rowH * 2 + rowH / 2);
+    exportCtx.fillText(cells[5], bx + padX + colW + colGap, by + padY + rowH * 2 + rowH / 2);
     exportCtx.restore();
   }
 }
@@ -1373,12 +1375,19 @@ function parseGPX(text) {
   return all.filter(p => p.localName === 'trkpt' || p.localName === 'rtept').map(p => {
     const ele = p.querySelector('ele') || all.find(x => x.parentNode === p && x.localName === 'ele');
     const time = p.querySelector('time') || all.find(x => x.parentNode === p && x.localName === 'time');
-    return { lat: parseFloat(p.getAttribute('lat')), lon: parseFloat(p.getAttribute('lon')), ele: ele ? parseFloat(ele.textContent) : null, time: time ? new Date(time.textContent).getTime() : null };
+    // Rythme cardiaque : extension standard des montres (Garmin TrackPointExtension
+    // et variantes), balise <hr> quel que soit le préfixe de namespace utilisé.
+    let hr = null;
+    try {
+      const hrEl = [...p.getElementsByTagName('*')].find(x => x.localName === 'hr');
+      if (hrEl) { const v = parseInt(hrEl.textContent, 10); if (!isNaN(v)) hr = v; }
+    } catch (e) { /* pas de FC sur ce point, pas grave */ }
+    return { lat: parseFloat(p.getAttribute('lat')), lon: parseFloat(p.getAttribute('lon')), ele: ele ? parseFloat(ele.textContent) : null, time: time ? new Date(time.textContent).getTime() : null, hr };
   }).filter(p => !isNaN(p.lat) && !isNaN(p.lon));
 }
 
 function calculateTrackData(points) {
-  let cumDist = 0, cumDplus = 0, minEle = Infinity, maxEle = -Infinity, hasEle = false, trackPts = [], lastEle = points[0]?.ele;
+  let cumDist = 0, cumDplus = 0, minEle = Infinity, maxEle = -Infinity, hasEle = false, hasHr = false, trackPts = [], lastEle = points[0]?.ele;
   const hasTime = points.length > 0 && points[0].time && points[points.length-1].time;
   const startT = hasTime ? points[0].time : 0, totalT = hasTime ? points[points.length-1].time - startT : 0;
   
@@ -1396,10 +1405,11 @@ function calculateTrackData(points) {
         else if (diff <= -ELE_THRESHOLD) { lastEle = pt.ele; }
       } else { lastEle = pt.ele; }
     }
-    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, dist: cumDist / 1000, cumDplus, elapsedSec: hasTime ? (pt.time - startT) / 1000 : null, fraction: (hasTime && totalT > 0) ? (pt.time - startT)/totalT : cumDist });
+    if (pt.hr !== null && pt.hr !== undefined && !isNaN(pt.hr)) hasHr = true;
+    trackPts.push({ lat: pt.lat, lon: pt.lon, ele: pt.ele, hr: (pt.hr !== null && pt.hr !== undefined) ? pt.hr : null, dist: cumDist / 1000, cumDplus, elapsedSec: hasTime ? (pt.time - startT) / 1000 : null, fraction: (hasTime && totalT > 0) ? (pt.time - startT)/totalT : cumDist });
   });
   if (!hasTime && cumDist > 0) trackPts.forEach(p => p.fraction /= cumDist);
-  return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, totalElapsedSec: hasTime ? totalT / 1000 : null, minEle: hasEle ? minEle : 0, maxEle: hasEle ? maxEle : 0, hasElevation: hasEle };
+  return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, totalElapsedSec: hasTime ? totalT / 1000 : null, minEle: hasEle ? minEle : 0, maxEle: hasEle ? maxEle : 0, hasElevation: hasEle, hasHr };
 }
 
 function addGPX(name, text) {
@@ -1649,10 +1659,14 @@ function setTrackPositionByRatio(ratio) {
       tempsTxt = formatDuration(elapsedForPace);
     }
     const allureTxt = formatPace(elapsedForPace, dist);
+    let hrTxt = '-- bpm';
+    if (p1.hr !== null && p2.hr !== null) hrTxt = Math.round(p1.hr + (p2.hr - p1.hr) * f) + ' bpm';
+    else if (p1.hr !== null) hrTxt = Math.round(p1.hr) + ' bpm'; // dernier point avec FC connue (capteur intermittent)
     document.getElementById('stDplus').textContent = dplusTxt; document.getElementById('c-dplus2').textContent = dplusTxt;
     document.getElementById('stPente').textContent = penteTxt; document.getElementById('c-pente2').textContent = penteTxt;
     document.getElementById('stTemps').textContent = tempsTxt; document.getElementById('c-temps2').textContent = tempsTxt;
     document.getElementById('stAllure').textContent = allureTxt; document.getElementById('c-allure2').textContent = allureTxt;
+    document.getElementById('stHr').textContent = hrTxt; document.getElementById('c-hr2').textContent = hrTxt;
     document.getElementById('c-dist2').textContent = distTxt;
   }
 
