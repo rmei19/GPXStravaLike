@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.41</title>
+<title>GPX Compare v3.43</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -350,7 +350,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.41</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.43</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -414,7 +414,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 </div>
 
 <div id="download-ready-banner" class="hidden">
-  <span>✅ Vidéo prête</span>
+  <span id="downloadReadyText">✅ Vidéo prête</span>
   <a id="downloadReadyLink" download>📥 Télécharger</a>
   <button id="btnDismissDownloadBanner">✕</button>
 </div>
@@ -425,7 +425,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.41</div>
+      <div id="cinema-watermark">GPX Compare v3.43</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -912,7 +912,7 @@ function drawExportFrame() {
   // qu'un téléphone peut tenir en continu pendant la phase d'assemblage, et
   // fait perdre silencieusement des frames — d'où une vidéo au final bien
   // moins fluide/nette que prévu, malgré un calcul de frames complet en amont.
-  const MAX_EXPORT_DIM = 1440;
+  const MAX_EXPORT_DIM = 1600;
   let targetW = mc.width, targetH = mc.height;
   const longest = Math.max(targetW, targetH);
   if (longest > MAX_EXPORT_DIM) {
@@ -1038,7 +1038,7 @@ async function benchmarkDecodeCost() {
 // pression mémoire, notamment sur mobile avec un grand canvas).
 function captureFrameBlob() {
   return new Promise(res => {
-    try { exportCanvas.toBlob(b => res(b || null), 'image/jpeg', 0.92); }
+    try { exportCanvas.toBlob(b => res(b || null), 'image/jpeg', 0.96); }
     catch (e) { res(null); }
   });
 }
@@ -1055,7 +1055,7 @@ async function startRecording() {
 
   const quality = document.querySelector('input[name="exportQuality"]:checked').value;
   const outputFps = quality === 'high' ? 60 : 30; // fps du fichier vidéo final, choisi par l'utilisateur
-  const bitrate = quality === 'high' ? 12000000 : 4500000;
+  const bitrate = quality === 'high' ? 16000000 : 6000000;
   const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
 
   isRecording = true;
@@ -1150,7 +1150,12 @@ async function startRecording() {
       } catch (e) { console.error('Téléchargement automatique impossible :', e); }
 
       // Solution de repli garantie, quel que soit le navigateur : un vrai
-      // lien affiché à l'écran, que la personne tape elle-même.
+      // lien affiché à l'écran, que la personne tape elle-même. Le compte de
+      // frames y est aussi affiché, de façon persistante (pas juste 4s dans
+      // la bannière rouge, facile à manquer) — utile pour vérifier si des
+      // images ont été perdues en route.
+      const frameSummary = `${frameBlobs.length}/${totalFrames + 1} images${skippedCount > 0 ? ` (${skippedCount} ignorée(s))` : ''}`;
+      document.getElementById('downloadReadyText').textContent = `✅ Vidéo prête — ${frameSummary}`;
       const dlLink = document.getElementById('downloadReadyLink');
       dlLink.href = url; dlLink.download = filename;
       document.getElementById('download-ready-banner').classList.remove('hidden');
@@ -1159,7 +1164,7 @@ async function startRecording() {
       // immédiatement après le clic auto.
       setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
 
-      setStatus(`Export terminé : ${frameBlobs.length}/${totalFrames + 1} images${skippedCount > 0 ? ` (${skippedCount} ignorée(s))` : ''}`);
+      setStatus(`Export terminé : ${frameSummary}`);
       // Laisse le message final visible quelques secondes avant de rendre la
       // main au mode Cinéma normal (sinon il disparaît instantanément).
       setTimeout(() => document.body.classList.remove('is-recording'), 4000);
@@ -1414,6 +1419,22 @@ function calculateTrackData(points) {
 
 function addGPX(name, text) {
   const rawPoints = parseGPX(text);
+  // Diagnostic FC : si rien n'a été extrait, on regarde si le fichier brut
+  // contient quand même des balises qui ressemblent à du rythme cardiaque —
+  // ça permet de savoir si c'est un vrai bug d'extraction (balises présentes
+  // mais mal reconnues) ou si le fichier n'en contient simplement pas.
+  const hrCount = rawPoints.filter(p => p.hr !== null).length;
+  if (hrCount === 0) {
+    const hrLikeTags = [...new Set((text.match(/<[a-zA-Z0-9_:]*hr[a-zA-Z0-9_:]*[ >]/gi) || []).map(s => s.trim().replace(/[<>]/g, '')))];
+    if (hrLikeTags.length) {
+      console.warn('FC : aucune valeur extraite, mais des balises ressemblant à du HR existent dans ce fichier :', hrLikeTags);
+      setStatus(`⚠️ FC présente dans le fichier mais non reconnue (balise : ${hrLikeTags[0]}) — signale-le`);
+    } else {
+      console.log('FC : aucune balise de rythme cardiaque trouvée dans ce GPX.');
+    }
+  } else {
+    console.log(`FC détectée sur ${hrCount}/${rawPoints.length} points de "${name}".`);
+  }
   const t = { id: 't-' + Math.random(), name, color: colors[colorIndex++ % colors.length], visible: true, rawPoints, trimStart: 0, trimEnd: 0, data: calculateTrackData(rawPoints) };
   tracks.push(t);
   renderTrackOnMap(t); sortAndRenderTracks();
@@ -1658,7 +1679,8 @@ function setTrackPositionByRatio(ratio) {
       elapsedForPace = p1.elapsedSec + (p2.elapsedSec - p1.elapsedSec) * f;
       tempsTxt = formatDuration(elapsedForPace);
     }
-    const allureTxt = formatPace(elapsedForPace, dist);
+    const recentPace = computeRecentPace(pts, elapsedForPace, dist);
+    const allureTxt = recentPace ? formatPace(recentPace.elapsedSec, recentPace.distKm) : formatPace(elapsedForPace, dist);
     let hrTxt = '-- bpm';
     if (p1.hr !== null && p2.hr !== null) hrTxt = Math.round(p1.hr + (p2.hr - p1.hr) * f) + ' bpm';
     else if (p1.hr !== null) hrTxt = Math.round(p1.hr) + ' bpm'; // dernier point avec FC connue (capteur intermittent)
@@ -1908,6 +1930,22 @@ function formatPace(elapsedSec, distKm) {
   const paceSecPerKm = elapsedSec / distKm;
   const m = Math.floor(paceSecPerKm / 60), s = Math.round(paceSecPerKm % 60);
   return `${m}'${String(s).padStart(2,'0')}/km`;
+}
+// Allure "glissante" sur les ~60 dernières secondes plutôt que la moyenne
+// depuis le départ : plus représentative du rythme du moment (une moyenne
+// cumulée peut sembler "fausse" si l'allure a beaucoup varié en route).
+// Retombe sur la moyenne depuis le départ tant qu'il n'y a pas 60s de recul.
+function computeRecentPace(pts, curElapsed, curDist) {
+  if (curElapsed === null) return null;
+  const WINDOW_SEC = 60;
+  const targetElapsed = curElapsed - WINDOW_SEC;
+  if (targetElapsed <= 0) return null;
+  let refPt = pts[0];
+  for (let i = 0; i < pts.length; i++) {
+    if (pts[i].elapsedSec !== null && pts[i].elapsedSec <= targetElapsed) refPt = pts[i]; else break;
+  }
+  const deltaElapsed = curElapsed - refPt.elapsedSec, deltaDist = curDist - refPt.dist;
+  return (deltaElapsed > 0 && deltaDist > 0) ? { elapsedSec: deltaElapsed, distKm: deltaDist } : null;
 }
 function calculateBearing(lat1, lon1, lat2, lon2) {
   const y = Math.sin((lon2-lon1)*Math.PI/180)*Math.cos(lat2*Math.PI/180);
