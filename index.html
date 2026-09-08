@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.44</title>
+<title>GPX Compare v3.45</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -350,7 +350,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.44</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.45</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -425,7 +425,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.44</div>
+      <div id="cinema-watermark">GPX Compare v3.45</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -444,6 +444,7 @@ body.cinema-mode #cinema-watermark { display:block; }
         <div class="control-group">
           <button id="btnPlay">▶</button>
           <button id="btnTrimToggle" title="Rogner le début/la fin de la trace">✂️ Rogner</button>
+          <button id="btnRecalibrateEle" title="Recale l'altitude (souvent imprécise sur les montres) sur le relief de la carte">⛰️ Recaler altitude</button>
         </div>
         <div id="trim-controls" class="hidden">
           <div class="trim-row">
@@ -548,6 +549,7 @@ document.getElementById('saveKeyBtn').addEventListener('click', () => {
     keyModal.classList.add('hidden');
     if (pendingAction === '3d') document.getElementById('btn3D').click();
     else if (pendingAction === 'style') map.setStyle(getStyleUrl(document.getElementById('mapStyleSelect').value));
+    else if (pendingAction === 'recalibrate') recalibrateElevation();
     pendingAction = null;
   } else alert('Clé vide.');
 });
@@ -1511,6 +1513,47 @@ btnTrimToggle.addEventListener('click', () => {
   const nowOpen = trimControlsPanel.classList.toggle('hidden') === false;
   btnTrimToggle.classList.toggle('active', nowOpen);
 });
+
+// Recale l'altitude (souvent imprécise : capteur de pression barométrique de
+// la montre, dérive avec la météo) sur le relief réel de la carte (tuiles
+// DEM MapTiler), point par point. Nécessite une clé MapTiler (le relief 3D).
+const btnRecalibrateEle = document.getElementById('btnRecalibrateEle');
+btnRecalibrateEle.addEventListener('click', () => {
+  if (!activeTrackId) { alert('Sélectionne d\'abord une sortie.'); return; }
+  if (!MAPTILER_KEY) { pendingAction = 'recalibrate'; keyModal.classList.remove('hidden'); return; }
+  recalibrateElevation();
+});
+
+async function recalibrateElevation() {
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!tr || !map) return;
+  const wasTerrainOn = is3DMode;
+  btnRecalibrateEle.disabled = true;
+  try {
+    setStatus('⛰️ Préparation du relief...');
+    apply3DTerrain();
+    await warmupTiles(tr); // charge les tuiles DEM le long du parcours, au bon niveau de zoom
+    await new Promise(r => { if (map.loaded()) r(); else map.once('idle', r); });
+
+    setStatus('⛰️ Recalage de l\'altitude en cours...');
+    let corrected = 0, missing = 0;
+    tr.rawPoints = tr.rawPoints.map(p => {
+      const ele = map.queryTerrainElevation([p.lon, p.lat]);
+      if (ele !== null && ele !== undefined && isFinite(ele)) { corrected++; return { ...p, ele }; }
+      missing++;
+      return p; // hors couverture DEM : altitude d'origine conservée pour ce point
+    });
+    applyTrim(tr); // recalcule data/D+/profil/mini-carte en tenant compte du rognage déjà en place
+
+    if (!wasTerrainOn) map.setTerrain(null); // ne laisse le relief 3D actif que si l'utilisateur l'avait déjà activé
+    setStatus(`⛰️ Altitude recalée sur ${corrected} points${missing ? ` (${missing} hors couverture, conservés tels quels)` : ''}.`);
+  } catch (e) {
+    console.error('Recalage altitude échoué :', e);
+    setStatus('⚠️ Recalage altitude impossible (voir console).');
+  } finally {
+    btnRecalibrateEle.disabled = false;
+  }
+}
 
 function renderTrackOnMap(t) {
   if (!map) return;
