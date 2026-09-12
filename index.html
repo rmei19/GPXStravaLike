@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.45</title>
+<title>GPX Compare v3.46</title>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -350,7 +350,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.45</span></h1>
+    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.46</span></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -425,7 +425,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.45</div>
+      <div id="cinema-watermark">GPX Compare v3.46</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -1536,12 +1536,32 @@ async function recalibrateElevation() {
     await new Promise(r => { if (map.loaded()) r(); else map.once('idle', r); });
 
     setStatus('⛰️ Recalage de l\'altitude en cours...');
+    // On ne remplace PAS l'altitude par celle du relief (DEM) : le DEM est
+    // plus lisse qu'un baromètre et efface les petites variations réelles du
+    // terrain (marches, ressauts, murets...), ce qui sous-estimait le D+.
+    // On calcule plutôt un biais (DEM - altitude d'origine), lissé sur une
+    // fenêtre glissante, et on l'applique en correction : ça corrige la
+    // dérive progressive (météo, capteur) tout en gardant les vraies petites
+    // variations du profil GPS d'origine.
+    const BIAS_WINDOW = 25; // points de part et d'autre pour lisser le biais
+    const rawEles = tr.rawPoints.map(p => p.ele);
+    const demEles = tr.rawPoints.map(p => {
+      const e = map.queryTerrainElevation([p.lon, p.lat]);
+      return (e !== null && e !== undefined && isFinite(e)) ? e : null;
+    });
+    const biasRaw = demEles.map((d, i) => (d !== null && rawEles[i] !== null && isFinite(rawEles[i])) ? d - rawEles[i] : null);
+    const biasSmoothed = biasRaw.map((_, i) => {
+      let sum = 0, count = 0;
+      for (let j = Math.max(0, i - BIAS_WINDOW); j <= Math.min(biasRaw.length - 1, i + BIAS_WINDOW); j++) {
+        if (biasRaw[j] !== null) { sum += biasRaw[j]; count++; }
+      }
+      return count > 0 ? sum / count : null;
+    });
     let corrected = 0, missing = 0;
-    tr.rawPoints = tr.rawPoints.map(p => {
-      const ele = map.queryTerrainElevation([p.lon, p.lat]);
-      if (ele !== null && ele !== undefined && isFinite(ele)) { corrected++; return { ...p, ele }; }
-      missing++;
-      return p; // hors couverture DEM : altitude d'origine conservée pour ce point
+    tr.rawPoints = tr.rawPoints.map((p, i) => {
+      if (biasSmoothed[i] === null || p.ele === null || !isFinite(p.ele)) { missing++; return p; }
+      corrected++;
+      return { ...p, ele: p.ele + biasSmoothed[i] };
     });
     applyTrim(tr); // recalcule data/D+/profil/mini-carte en tenant compte du rognage déjà en place
 
@@ -1667,8 +1687,10 @@ function setTrackPositionByRatio(ratio) {
             // Ne réagit que si l'écart dépasse le seuil, et rejoint alors le
             // cap cible progressivement (lerp) au lieu de sauter dessus d'un
             // coup en une seule frame — c'était la source des à-coups.
+            // Vitesse de rattrapage alignée sur le lissage normal (au lieu
+            // de 1.5x plus rapide) : ça restait trop brusque au ressenti.
             let diff = (2 * ((rawB - currentCameraBearing) % 360)) % 360 - ((rawB - currentCameraBearing) % 360);
-            if (Math.abs(diff) > 25) currentCameraBearing = lerpAngle(currentCameraBearing, rawB, SMOOTHING_FACTOR * 1.5);
+            if (Math.abs(diff) > 25) currentCameraBearing = lerpAngle(currentCameraBearing, rawB, SMOOTHING_FACTOR);
             targetBearing = currentCameraBearing;
           } else {
             currentCameraBearing = lerpAngle(currentCameraBearing, rawB, SMOOTHING_FACTOR);
@@ -1688,21 +1710,19 @@ function setTrackPositionByRatio(ratio) {
 
       // En pente marquée (montée ou descente), le relief qui se dresse devant
       // la caméra pousse le point vers le haut du cadre, jusqu'à le faire
-      // sortir. Le seuil de déclenchement a été abaissé (15% → 8%) et l'effet
-      // combine désormais une caméra plus plongeante ET un léger dézoom : le
-      // dézoom est le levier le plus fiable (il élargit le champ visible dans
-      // toutes les directions, indépendamment de la façon dont MapLibre cale
-      // caméra et relief), le pitch réduit vient en renfort.
+      // sortir. Effet nettement réduit et adouci par rapport aux essais
+      // précédents (marge de zoom et réduction de pitch divisées par ~2, et
+      // lissées plus lentement) : ça restait trop marqué/saccadé au ressenti.
       const basePitch = is3DMode ? 60 : 0;
       let targetPitch = basePitch, targetZoomMargin = 0;
       if (is3DMode) {
         const absSlope = Math.abs(currentSlope);
-        const t = Math.min(1, Math.max(0, (absSlope - 8) / 20)); // 0 sous 8%, effet plein dès 28%
-        targetPitch = basePitch - t * 35; // jusqu'à 60° -> 25°
-        targetZoomMargin = t * 1.3; // dézoome jusqu'à ~1.3 niveau, jamais plus
+        const t = Math.min(1, Math.max(0, (absSlope - 12) / 22)); // 0 sous 12%, effet plein dès 34%
+        targetPitch = basePitch - t * 18; // jusqu'à 60° -> 42°
+        targetZoomMargin = t * 0.6; // dézoome jusqu'à ~0.6 niveau, jamais plus
       }
-      currentCameraPitch = lerp(currentCameraPitch, targetPitch, SMOOTHING_FACTOR);
-      currentZoomMargin = lerp(currentZoomMargin, targetZoomMargin, SMOOTHING_FACTOR * 0.6);
+      currentCameraPitch = lerp(currentCameraPitch, targetPitch, SMOOTHING_FACTOR * 0.7);
+      currentZoomMargin = lerp(currentZoomMargin, targetZoomMargin, SMOOTHING_FACTOR * 0.4);
 
       map.jumpTo({ center: [lon, lat], zoom: currentCameraZoom - currentZoomMargin, pitch: currentCameraPitch, bearing: targetBearing });
     }
