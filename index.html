@@ -3,34 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GPX Compare v3.46</title>
+<meta name="theme-color" content="#071824">
+<title>Tempo Traces — GPX Compare v3.47</title>
+
+<script>
+(() => {
+  const mode = localStorage.getItem('tempo-suite-theme') || 'system';
+  const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.themeMode = mode;
+  document.documentElement.dataset.theme = mode === 'system' ? (dark ? 'dark' : 'light') : mode;
+})();
+</script>
 
 <!-- MapLibre GL JS -->
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 
 <style>
 :root {
-  --bg-main: #202124;
-  --bg-panel: #2b2c30;
-  --bg-card: #1e1f23;
-  --text-main: #ffffff;
-  --text-sub: #aaaaaa;
-  --border-color: #444444;
-  --accent: #1976d2;
+  color-scheme: dark;
+  --bg-main: #071824;
+  --bg-panel: #0d2230;
+  --bg-card: #0a1925;
+  --text-main: #f4f7fa;
+  --text-sub: #91a8b7;
+  --border-color: #214052;
+  --accent: #5aa7ff;
 }
 
 [data-theme="light"] {
-  --bg-main: #f0f2f5;
+  color-scheme: light;
+  --bg-main: #f2f6fa;
   --bg-panel: #ffffff;
-  --bg-card: #e4e6eb;
-  --text-main: #050505;
-  --text-sub: #65676b;
-  --border-color: #cccccc;
-  --accent: #1877f2;
+  --bg-card: #e7eff6;
+  --text-main: #102536;
+  --text-sub: #60798b;
+  --border-color: #c7d7e3;
+  --accent: #267ac8;
 }
 
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;height:100%;width:100%;font-family:system-ui,-apple-system,sans-serif;overflow:hidden}
+html,body{margin:0;padding:0;height:100%;width:100%;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
 body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--text-main);transition:background .2s, color .2s}
 
 /* TOPBAR & ONGLETS */
@@ -61,6 +73,14 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
   color: var(--accent);
   border-right: 1px solid var(--border-color);
 }
+.suite-emblem{display:inline-block;width:17px;height:17px;margin-right:7px;border:4px solid var(--accent);border-right-color:transparent;border-radius:50%;transform:rotate(-34deg);vertical-align:-4px}
+.suite-module{display:block;margin-left:28px;color:var(--text-sub);font-size:8px;line-height:1;text-transform:uppercase;letter-spacing:.12em}
+.suite-links{position:sticky;right:0;flex:none;margin-left:auto;background:var(--bg-card)}
+.suite-links summary{padding:7px 10px;border:1px solid var(--border-color);border-radius:8px;color:var(--text-sub);font-size:11px;cursor:pointer;list-style:none}
+.suite-links summary::-webkit-details-marker{display:none}
+.suite-links div{position:fixed;top:42px;right:10px;z-index:3000;width:200px;padding:7px;display:grid;gap:3px;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-panel);box-shadow:0 16px 45px rgba(0,0,0,.32)}
+.suite-links a{padding:8px;border-radius:7px;color:var(--text-sub);font-size:12px;text-decoration:none}
+.suite-links a:hover,.suite-links a[aria-current="page"]{background:var(--bg-card);color:var(--text-main)}
 
 .tab-btn {
   background: transparent;
@@ -350,10 +370,15 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1>GPX Compare <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.46</span></h1>
+    <h1><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.47</span><small class="suite-module">Traces · GPX Compare</small></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
+    <details class="suite-links"><summary>Suite</summary><div>
+      <a href="https://octopi.tail2fca2d.ts.net:8443/">Entraînement</a><a aria-current="page" href="./">Traces GPX</a>
+      <a href="https://rmei19.github.io/RunPlanner/">Parcours course</a><a href="https://rmei19.github.io/RoadPlannerBis/">Parcours vélo</a>
+      <a href="https://agendamaisonpersonnelremi.netlify.app/">Agenda Maison</a>
+    </div></details>
   </div>
 
   <div id="tb-fichiers" class="tb-panel active">
@@ -425,7 +450,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.46</div>
+      <div id="cinema-watermark">GPX Compare v3.47</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -660,10 +685,25 @@ document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
   map.setStyle(getStyleUrl(e.target.value));
 });
 
+const suiteThemeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+function applySuiteTheme(mode) {
+  const selected = ['system','dark','light'].includes(mode) ? mode : 'system';
+  const resolved = selected === 'system' ? (suiteThemeMedia.matches ? 'dark' : 'light') : selected;
+  document.documentElement.dataset.themeMode = selected;
+  document.documentElement.dataset.theme = resolved;
+  document.getElementById('themeSelect').value = selected;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolved === 'dark' ? '#071824' : '#f2f6fa');
+}
+applySuiteTheme(localStorage.getItem('tempo-suite-theme') || 'system');
 document.getElementById('themeSelect').addEventListener('change', (e) => {
-  const t = e.target.value;
-  document.documentElement.setAttribute('data-theme', t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t);
+  localStorage.setItem('tempo-suite-theme', e.target.value);
+  applySuiteTheme(e.target.value);
 });
+const followSuiteSystemTheme = () => {
+  if ((localStorage.getItem('tempo-suite-theme') || 'system') === 'system') applySuiteTheme('system');
+};
+if (suiteThemeMedia.addEventListener) suiteThemeMedia.addEventListener('change', followSuiteSystemTheme);
+else suiteThemeMedia.addListener(followSuiteSystemTheme);
 
 document.getElementById('btn3D').addEventListener('click', () => {
   if (!is3DMode && !MAPTILER_KEY) { pendingAction = '3d'; keyModal.classList.remove('hidden'); return; }
