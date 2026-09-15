@@ -51,11 +51,16 @@ fi
 echo "✅ Aucun conflit détecté."
 
 # --------------------------------------------------
-# 4. Vérifier que le dépôt est propre côté Git
+# 4. Rattraper GitHub sans perdre les fichiers locaux modifiés
 # --------------------------------------------------
 
 echo ""
 echo "☁️ Vérification de GitHub..."
+
+if [ -n "$(git ls-files -u)" ]; then
+    echo "❌ Un conflit Git est déjà en cours ; résous-le avant de publier."
+    exit 1
+fi
 
 git fetch origin
 
@@ -68,17 +73,58 @@ if [ "$LOCAL" != "$REMOTE" ]; then
     AHEAD=$(git rev-list --count origin/main..main)
     BEHIND=$(git rev-list --count main..origin/main)
 
-    echo ""
-    echo "⚠️ Les versions ont divergé."
-    echo ""
-    echo "   📱/💻 Local  : $AHEAD commit(s) d'avance"
-    echo "   ☁️ GitHub    : $BEHIND commit(s) d'avance"
-    echo ""
-    echo "❌ Publication annulée."
-    echo ""
-    echo "Un autre appareil a probablement publié une version."
-    echo "Synchronise d'abord manuellement avec GitHub."
-    exit 1
+    if [ "$AHEAD" -eq 0 ] && [ "$BEHIND" -gt 0 ] && git merge-base --is-ancestor main origin/main; then
+        echo ""
+        echo "🔄 GitHub a $BEHIND commit(s) d'avance ; synchronisation sans fusion..."
+        # Le contenu local de chaque fichier MODIFIÉ est le contenu voulu :
+        # conserver un checkpoint avant de mettre à jour l'historique.
+        checkpoint=""
+        modified_paths=()
+        new_paths=()
+        if [ -n "$(git status --porcelain)" ]; then
+            mapfile -d '' -t modified_paths < <(git -c diff.renames=false diff --name-only -z HEAD)
+            mapfile -d '' -t new_paths < <(git ls-files --others --exclude-standard -z)
+            git stash push --include-untracked -m "push.sh : sauvegarde locale avant synchronisation"
+            checkpoint=$(git rev-parse 'stash@{0}')
+            echo "🔒 Copie de sécurité des fichiers locaux : $checkpoint"
+        fi
+        if ! git merge --ff-only origin/main; then
+            echo ""
+            if [ -n "$checkpoint" ]; then
+                git stash apply "$checkpoint" || true
+                echo "Tes modifications sont aussi récupérables dans le checkpoint $checkpoint."
+            fi
+            echo "❌ Synchronisation impossible ; rien n'a été publié."
+            exit 1
+        fi
+        if [ -n "$checkpoint" ]; then
+            # Restaurer LES FICHIERS modifiés depuis la sauvegarde, et non un
+            # merge textuel qui pourrait mêler deux versions d'index.html.
+            if [ "${#modified_paths[@]}" -gt 0 ]; then
+                git restore --source="$checkpoint" --staged --worktree -- "${modified_paths[@]}" || {
+                    echo "❌ Restauration incomplète ; checkpoint conservé : $checkpoint"
+                    exit 1
+                }
+            fi
+            if [ "${#new_paths[@]}" -gt 0 ]; then
+                git restore --source="$checkpoint^3" --worktree -- "${new_paths[@]}" || {
+                    echo "❌ Restauration des nouveaux fichiers incomplète ; checkpoint : $checkpoint"
+                    exit 1
+                }
+            fi
+            echo "✅ Dernière version locale des fichiers modifiés rétablie."
+        fi
+        echo "✅ Historique GitHub conservé ; aucun push forcé."
+    elif [ "$BEHIND" -eq 0 ] && [ "$AHEAD" -gt 0 ] && git merge-base --is-ancestor origin/main main; then
+        echo "📌 $AHEAD commit(s) local(aux) déjà prêts à publier."
+    else
+        echo ""
+        echo "⚠️ Historique local et GitHub divergents."
+        echo "   📱/💻 Local  : $AHEAD commit(s) d'avance"
+        echo "   ☁️ GitHub    : $BEHIND commit(s) d'avance"
+        echo "❌ Publication annulée : fusion ou rebase à résoudre manuellement."
+        exit 1
+    fi
 fi
 
 # --------------------------------------------------
@@ -91,21 +137,32 @@ echo ""
 
 git status --short
 
-if git diff --quiet && git diff --cached --quiet; then
+if [ -z "$(git status --porcelain)" ]; then
     echo ""
+    if [ "$(git rev-list --count origin/main..main)" -gt 0 ]; then
+        echo "📌 Aucun fichier à modifier, mais des commits locaux sont à publier."
+        git fetch origin
+        if ! git merge-base --is-ancestor origin/main main; then
+            echo "❌ GitHub a changé entre-temps ; aucun push effectué."
+            exit 1
+        fi
+        git push -u origin main
+        echo "✅ Commits locaux publiés."
+        exit 0
+    fi
     echo "ℹ️ Aucune modification à publier."
     exit 0
 fi
 
 echo ""
-echo "Résumé :"
-git diff --stat
-
 # --------------------------------------------------
 # 6. Ajouter les fichiers
 # --------------------------------------------------
 
-git add .
+git add -A
+
+echo "Résumé :"
+git diff --cached --stat
 
 # Vérification finale des conflits après git add
 if git diff --cached --name-only | grep -q .; then
@@ -113,7 +170,7 @@ if git diff --cached --name-only | grep -q .; then
     if git diff --cached | grep -q -E '^(<<<<<<<|=======|>>>>>>>)'; then
         echo ""
         echo "❌ Un marqueur de conflit est présent dans les fichiers."
-        git reset
+        echo "Les fichiers préparés restent disponibles dans l'index Git."
         exit 1
     fi
 

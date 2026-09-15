@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071824">
-<title>Tempo Traces — GPX Compare v3.47</title>
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Tempo Traces — GPX Compare v3.49</title>
 
 <script>
 (() => {
@@ -119,6 +120,11 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
 .tb-panel.active { flex-direction: column; align-items: stretch; }
 .tb-panel .tb-group { display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; padding-top:6px; }
 .tb-panel .tb-group:not(:first-child) { border-top:1px solid var(--border-color); padding-top:8px; }
+@media(min-width:701px){
+  #tb-carte.tb-panel.active { flex-direction:row; align-items:center; gap:10px; padding:5px 12px; }
+  #tb-carte .tb-group { width:auto; padding:0; }
+  #tb-carte .tb-group:not(:first-child) { border:0; padding:0; }
+}
 @media(max-width:700px){
   #topbar-tabs { gap:8px; padding:0 8px; }
   #topbar-tabs h1 { font-size:13px; padding:7px 7px 7px 0; }
@@ -151,8 +157,6 @@ button.active { background:var(--accent); color:#fff; border-color:var(--accent)
 .radio-group label { font-size: 13px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
 /* Drag & Drop & Status */
-#drop { margin:6px 10px; padding:8px; border:2px dashed var(--border-color); border-radius:8px; text-align:center; background:var(--bg-card); color:var(--text-sub); font-size:13px; flex:none }
-#drop.drag { border-color:var(--accent); background:var(--bg-panel) }
 #side.drag { outline:3px dashed var(--accent); outline-offset:-3px; background:var(--bg-panel) }
 #status { font-size:12px; margin:0 10px 4px; color:var(--text-sub); min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:none }
 
@@ -197,11 +201,12 @@ body.live-stats-on .live-stat { display:inline }
 #map { position:absolute; inset:0; width:100%; height:100% }
 
 /* Profil / Controls */
-#profile-container { background:var(--bg-panel); color:var(--text-main); border-top:1px solid var(--border-color); padding:8px 12px; display:flex; flex-direction:column; gap:6px; flex:none; z-index:950; max-height:60vh; overflow-y:auto }
+#profile-container { background:var(--bg-panel); color:var(--text-main); border-top:1px solid var(--border-color); padding:5px 10px; display:flex; flex-direction:column; gap:4px; flex:none; z-index:950; max-height:60vh; overflow-y:auto }
 #profile-header { display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:600 }
 #active-track-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:60% }
 #active-track-stats { font-size:11px; color:var(--text-sub) }
-#canvas-wrap { position:relative; width:100%; height:100px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:6px; cursor:crosshair; touch-action:none }
+#canvas-wrap { position:relative; width:100%; height:68px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:6px; cursor:crosshair; touch-action:none }
+body.map-focus #canvas-wrap { display:none }
 #elevationCanvas { width:100%; height:100%; display:block }
 #tracker-controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px; background:var(--bg-card); padding:6px 8px; border-radius:6px; border:1px solid var(--border-color) }
 #trim-controls { display:flex; flex-direction:column; gap:8px; width:100%; font-size:12px; color:var(--text-sub); background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; padding:10px; }
@@ -222,7 +227,7 @@ body.live-stats-on .live-stat { display:inline }
 #tracker-stats-bar { display:flex; gap:10px; font-size:11px; color:var(--text-sub); font-weight:500; width:100%; overflow-x:auto; white-space:nowrap; padding-top:2px }
 
 /* Side panel */
-#side { width:320px; max-width:35%; background:var(--bg-panel); color:var(--text-main); border-left:1px solid var(--border-color); padding:10px; display:flex; flex-direction:column; z-index:1500; transition: transform 0.3s ease; }
+#side { width:280px; max-width:30%; background:var(--bg-panel); color:var(--text-main); border-left:1px solid var(--border-color); padding:10px; display:flex; flex-direction:column; z-index:1500; transition: transform 0.3s ease; }
 #sideHeaderHandle { display:none }
 #side h2 { font-size:15px; margin:0 0 6px }
 #side-tools { display:flex; gap:6px; margin-bottom:8px }
@@ -246,7 +251,6 @@ body.live-stats-on .live-stat { display:inline }
 
 /* MODE CINÉMA */
 body.cinema-mode #topbar-wrapper,
-body.cinema-mode #drop,
 body.cinema-mode #status,
 body.cinema-mode #profile-container,
 body.cinema-mode #side {
@@ -317,12 +321,34 @@ body.cinema-mode #cinema-watermark { display:block; }
 
 @media(max-width:700px){
   .mobile-only { display:inline-block }
-  #drop { margin:4px 8px; padding:6px; font-size:12px }
-  #canvas-wrap { height:80px }
+  #canvas-wrap { height:62px }
   #side { position:fixed; left:0; right:0; bottom:0; width:100%; max-width:none; height:60vh; border:0; border-top:1px solid var(--border-color); border-radius:14px 14px 0 0; padding:8px 10px calc(8px + env(safe-area-inset-bottom)); box-shadow:0 -4px 18px rgba(0,0,0,.5); transform:translateY(calc(100% - 38px)); transition:transform .3s cubic-bezier(0.4, 0, 0.2, 1); }
   #side.open { transform:translateY(0) }
   #sideHeader { cursor:pointer; padding-bottom:4px }
   #sideHeaderHandle { display:block; width:36px; height:4px; border-radius:4px; background:var(--text-sub); margin:0 auto 6px }
+}
+/* PC : navigation et commandes sur UNE ligne, le reste dans des menus. */
+@media(min-width:1100px){
+  #topbar-wrapper { flex-direction:row; align-items:center; min-height:49px; padding-right:8px }
+  #topbar-tabs { flex:none; padding:0 4px; gap:5px; overflow:visible }
+  #topbar-tabs h1 { font-size:14px; padding:6px 7px 6px 4px }
+  .suite-module { font-size:7px }
+  .tab-btn { font-size:12px; padding:10px 7px }
+  #topbar-wrapper .tb-panel.active { flex:1; min-width:0; flex-direction:row; align-items:center; justify-content:flex-end; padding:4px 3px; gap:6px; flex-wrap:nowrap }
+  #topbar-wrapper .tb-group { width:auto; flex-wrap:nowrap; border:0; padding:0; gap:6px }
+  #topbar-wrapper .tb-group:not(:first-child) { border:0; padding:0 }
+  #topbar-wrapper .tb-group button, #topbar-wrapper .tb-group select, #topbar-wrapper .tb-group .file-label { font-size:12px; padding:6px 8px; white-space:nowrap }
+  #status { position:absolute; left:12px; top:55px; z-index:970; width:max-content; max-width:min(420px, calc(100vw - 320px)); margin:0; padding:3px 8px; min-height:0; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:6px; pointer-events:none }
+  #status:empty { display:none }
+}
+.toolbar-more { position:relative; flex:none }
+.toolbar-more summary { border:1px solid var(--border-color); background:var(--bg-panel); border-radius:6px; color:var(--text-main); cursor:pointer; font-size:12px; font-weight:600; padding:6px 9px; list-style:none; white-space:nowrap }
+.toolbar-more summary::-webkit-details-marker { display:none }
+.toolbar-menu { position:absolute; top:calc(100% + 6px); right:0; z-index:2200; display:grid; gap:6px; min-width:195px; padding:8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 12px 32px rgba(0,0,0,.38) }
+.toolbar-menu button, .toolbar-menu select { width:100%; justify-content:flex-start; font-size:12px }
+@media(max-width:1099px){
+  .toolbar-more { align-self:flex-start }
+  .toolbar-more summary { padding:7px 11px }
 }
 </style>
 </head>
@@ -370,12 +396,12 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.47</span><small class="suite-module">Traces · GPX Compare</small></h1>
+    <h1><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.49</span><small class="suite-module">Traces · GPX Compare</small></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
     <details class="suite-links"><summary>Suite</summary><div>
-      <a href="https://octopi.tail2fca2d.ts.net:8443/">Entraînement</a><a aria-current="page" href="./">Traces GPX</a>
+      <a href="https://octopi.tail2fca2d.ts.net:8443/">Entraînement privé</a><a aria-current="page" href="./">Traces GPX</a>
       <a href="https://rmei19.github.io/RunPlanner/">Parcours course</a><a href="https://rmei19.github.io/RoadPlannerBis/">Parcours vélo</a>
       <a href="https://agendamaisonpersonnelremi.netlify.app/">Agenda Maison</a>
     </div></details>
@@ -383,16 +409,16 @@ body.cinema-mode #cinema-watermark { display:block; }
 
   <div id="tb-fichiers" class="tb-panel active">
     <div class="tb-group">
-      <label class="file-label">➕ Charger GPX <input id="fileInput" type="file" accept=".gpx" multiple></label>
-      <button id="clearBtn">🗑️ Tout effacer</button>
+      <label class="file-label">➕ Charger GPX/FIT <input id="fileInput" type="file" accept=".gpx,.fit" multiple></label>
       <button id="toggleSide" class="mobile-only">📋 Panneau Sorties</button>
-    </div>
-    <div class="tb-group">
-      <select id="themeSelect">
-        <option value="system" selected>💻 Système</option>
-        <option value="dark">🌙 Sombre</option>
-        <option value="light">☀️ Clair</option>
-      </select>
+      <details class="toolbar-more"><summary>⚙️ Options</summary><div class="toolbar-menu">
+        <select id="themeSelect" aria-label="Thème de l'interface">
+          <option value="system" selected>💻 Système</option>
+          <option value="dark">🌙 Sombre</option>
+          <option value="light">☀️ Clair</option>
+        </select>
+        <button id="clearBtn">🗑️ Tout effacer</button>
+      </div></details>
     </div>
   </div>
 
@@ -408,29 +434,31 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div class="tb-group">
       <button id="btn3D">📐 3D</button>
       <button id="fitBtn">🎯 Recentrer</button>
-      <button id="btnFullscreen">⛶ Plein écran</button>
+      <details class="toolbar-more"><summary>⚙️ Affichage</summary><div class="toolbar-menu">
+        <button id="btnMapFocus" title="Masquer ou afficher le profil pour agrandir la carte">↕️ Carte large</button>
+        <button id="btnFullscreen">⛶ Plein écran</button>
+      </div></details>
     </div>
   </div>
 
   <div id="tb-export" class="tb-panel">
     <div class="tb-group">
       <button id="btnLiveStats">📊 Infos sortie</button>
-      <select id="minimapPosSelect">
-        <option value="off" selected>🗺️ Mini-carte : désactivée</option>
-        <option value="left">🗺️ Mini-carte : bas-gauche</option>
-        <option value="right">🗺️ Mini-carte : bas-droite</option>
-      </select>
-      <button id="btnMiniProfile" title="Profil de dénivelé au-dessus de la mini-carte">📈 Profil altitude</button>
-    </div>
-    <div class="tb-group">
       <button id="btnCinema">🎦 Mode Cinéma</button>
       <button id="btnExportVideoOpen" style="background:#e53935; border-color:#e53935; color:#fff;">🎬 Exporter Vidéo</button>
-      <button id="btnKey">🔑 Clé API</button>
+      <details class="toolbar-more"><summary>⚙️ Options</summary><div class="toolbar-menu">
+        <select id="minimapPosSelect">
+          <option value="off" selected>🗺️ Mini-carte : désactivée</option>
+          <option value="left">🗺️ Mini-carte : bas-gauche</option>
+          <option value="right">🗺️ Mini-carte : bas-droite</option>
+        </select>
+        <button id="btnMiniProfile" title="Profil de dénivelé au-dessus de la mini-carte">📈 Profil altitude</button>
+        <button id="btnKey">🔑 Clé API</button>
+      </div></details>
     </div>
   </div>
 </div>
 
-<div id="drop">Glisse-dépose tes fichiers GPX ici</div>
 <div id="status"></div>
 
 <div id="record-indicator">
@@ -450,7 +478,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.47</div>
+      <div id="cinema-watermark">GPX Compare v3.49</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -530,7 +558,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       </div>
       <div id="stats"></div>
     </div>
-    <div id="tracks"><div class="empty">Aucun GPX chargé.</div></div>
+    <div id="tracks"><div class="empty">Aucun GPX/FIT chargé.</div></div>
   </aside>
 </div>
 
@@ -600,7 +628,7 @@ function lerpAngle(start, end, amount) {
 
 const osmStyle = {
   "version": 8,
-  "sources": { "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 } },
+  "sources": { "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256, "attribution": "© OpenStreetMap contributors" } },
   "layers": [{ "id": "osm-layer", "type": "raster", "source": "osm" }]
 };
 
@@ -1293,6 +1321,12 @@ document.getElementById('btnFullscreen').addEventListener('click', () => {
   if (!document.fullscreenElement) document.documentElement.requestFullscreen();
   else document.exitFullscreen();
 });
+document.getElementById('btnMapFocus').addEventListener('click', event => {
+  const focused = document.body.classList.toggle('map-focus');
+  event.currentTarget.classList.toggle('active', focused);
+  event.currentTarget.textContent = focused ? '↕️ Voir le profil' : '↕️ Carte large';
+  requestAnimationFrame(() => { map?.resize(); if (!focused) resizeCanvas(); });
+});
 
 function resizeCanvas() {
   if (isCinemaMode) return;
@@ -1305,10 +1339,6 @@ function resizeCanvas() {
 window.addEventListener('resize', () => { resizeCanvas(); if(map) map.resize(); });
 
 document.getElementById('fileInput').addEventListener('change', e => { loadFiles([...e.target.files]); e.target.value=''; });
-document.getElementById('drop').addEventListener('drop', e => { e.preventDefault(); document.getElementById('drop').classList.remove('drag'); loadFiles([...e.dataTransfer.files]); });
-['dragenter', 'dragover'].forEach(ev => document.getElementById('drop').addEventListener(ev, e => { e.preventDefault(); document.getElementById('drop').classList.add('drag'); }));
-['dragleave', 'drop'].forEach(ev => document.getElementById('drop').addEventListener(ev, e => document.getElementById('drop').classList.remove('drag')));
-
 // Glisser-déposer accepté aussi directement sur le panneau "Sorties" — plus
 // naturel que de devoir viser la petite zone dédiée sur l'onglet Fichiers.
 const sideDropTarget = document.getElementById('side');
@@ -1316,14 +1346,124 @@ sideDropTarget.addEventListener('drop', e => { e.preventDefault(); sideDropTarge
 ['dragenter', 'dragover'].forEach(ev => sideDropTarget.addEventListener(ev, e => { e.preventDefault(); sideDropTarget.classList.add('drag'); }));
 ['dragleave', 'drop'].forEach(ev => sideDropTarget.addEventListener(ev, e => sideDropTarget.classList.remove('drag')));
 
-function loadFiles(files) { files.filter(f => f.name.toLowerCase().endsWith('.gpx') || !f.name.includes('.')).forEach(readFile); }
+function loadFiles(files) {
+  files.filter(f => /\.(gpx|fit)$/i.test(f.name)).forEach(file => {
+    if (/\.fit$/i.test(file.name)) readFitFile(file);
+    else readFile(file);
+  });
+}
+async function readFitFile(file) {
+  try {
+    setStatus(`Lecture locale du FIT ${file.name}…`);
+    const text = fitToGpxBrowser(await file.arrayBuffer(), file.name);
+    const track = addGPX(deriveTrackName(file.name, text), text);
+    autoRenameTrack(track, text);
+    setStatus(`${file.name} chargé localement (FIT d'origine conservé).`);
+  } catch (error) {
+    console.error('Import FIT impossible :', error);
+    setStatus(`Import FIT impossible : ${error.message}`);
+  }
+}
+// Lecteur FIT autonome pour les champs record GPS/altitude/FC/temps. Seules les
+// coordonnées sont nécessaires à une trace ; les autres champs sont facultatifs.
+function fitToGpxBrowser(buffer, filename) {
+  const view = new DataView(buffer), bytes = new Uint8Array(buffer);
+  if (bytes.length < 14 || String.fromCharCode(...bytes.slice(8, 12)) !== '.FIT')
+    throw new Error('fichier FIT invalide');
+  const headerSize = view.getUint8(0), dataSize = view.getUint32(4, true);
+  const end = headerSize + dataSize;
+  if (headerSize < 12 || end > bytes.length || dataSize > 50_000_000)
+    throw new Error('fichier FIT incomplet ou trop volumineux');
+  const definitions = new Array(16), records = [];
+  let offset = headerSize, lastTime = null, sport = null;
+  function value(at, size, type, little) {
+    const base = type & 31;
+    if (size === 1) {
+      if (base === 1) { const n = view.getInt8(at); return n === 127 ? null : n; }
+      const n = view.getUint8(at); return n === (base === 10 ? 0 : 255) ? null : n;
+    }
+    if (size === 2 && [3, 4, 11].includes(base)) {
+      const n = base === 3 ? view.getInt16(at, little) : view.getUint16(at, little);
+      return n === (base === 3 ? 32767 : base === 11 ? 0 : 65535) ? null : n;
+    }
+    if (size === 4 && [5, 6, 12].includes(base)) {
+      const n = base === 5 ? view.getInt32(at, little) : view.getUint32(at, little);
+      return n === (base === 5 ? 2147483647 : base === 12 ? 0 : 4294967295) ? null : n;
+    }
+    return null;
+  }
+  while (offset < end) {
+    const header = view.getUint8(offset++);
+    const compressed = !!(header & 0x80);
+    const local = compressed ? (header >> 5) & 3 : header & 15;
+    if (!compressed && (header & 0x40)) {
+      if (offset + 5 > end) throw new Error('définition FIT tronquée');
+      offset++; const little = view.getUint8(offset++) === 0;
+      const global = view.getUint16(offset, little); offset += 2;
+      const count = view.getUint8(offset++), fields = [];
+      if (offset + count * 3 > end) throw new Error('définition FIT tronquée');
+      for (let i = 0; i < count; i++) {
+        fields.push({number:bytes[offset++], size:bytes[offset++], type:bytes[offset++]});
+      }
+      if (header & 0x20) {
+        if (offset >= end) throw new Error('définition FIT tronquée');
+        const developerCount = bytes[offset++];
+        if (offset + developerCount * 3 > end) throw new Error('définition FIT tronquée');
+        for (let i = 0; i < developerCount; i++) fields.push({number:-1,size:bytes[offset + 1 + i * 3],type:0});
+        offset += developerCount * 3;
+      }
+      definitions[local] = {global, little, fields};
+      continue;
+    }
+    const definition = definitions[local];
+    if (!definition) throw new Error('message FIT sans définition');
+    const fields = {};
+    for (const field of definition.fields) {
+      if (offset + field.size > end) throw new Error('enregistrement FIT tronqué');
+      if ((definition.global === 20 || definition.global === 18) && field.number >= 0)
+        fields[field.number] = value(offset, field.size, field.type, definition.little);
+      offset += field.size;
+    }
+    if (definition.global === 18 && fields[5] != null)
+      sport = fields[5] === 1 ? 'running' : fields[5] === 2 ? 'cycling' : sport;
+    if (definition.global !== 20) continue;
+    let timestamp = fields[253];
+    if (compressed && timestamp == null && lastTime != null) {
+      timestamp = (lastTime & ~31) + (header & 31);
+      if (timestamp < lastTime) timestamp += 32;
+    }
+    if (timestamp != null) lastTime = timestamp;
+    const lat = fields[0], lon = fields[1];
+    if (lat == null || lon == null) continue;
+    const latitude = lat * 180 / 2147483648, longitude = lon * 180 / 2147483648;
+    if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue;
+    const alt = fields[78] != null ? fields[78] : fields[2];
+    records.push({latitude, longitude, elevation:alt == null ? null : alt / 5 - 500,
+      timestamp, hr:fields[3]});
+    if (records.length > 100000) throw new Error('trace FIT trop longue');
+  }
+  if (records.length < 2) throw new Error('ce FIT ne contient pas de trace GPS exploitable');
+  const name = filename.replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
+  const points = records.map(p => `<trkpt lat="${p.latitude}" lon="${p.longitude}">` +
+    (p.elevation == null ? '' : `<ele>${p.elevation}</ele>`) +
+    (p.timestamp == null ? '' : `<time>${new Date(631065600000 + p.timestamp * 1000).toISOString()}</time>`) +
+    (p.hr == null ? '' : `<extensions><gpxtpx:TrackPointExtension><gpxtpx:hr>${p.hr}</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions>`) +
+    '</trkpt>').join('');
+  return `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="GPX Compare" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"><trk><name>${name}</name>${sport ? `<type>${sport}</type>` : ''}<trkseg>${points}</trkseg></trk></gpx>`;
+}
 function readFile(file) {
   const r = new FileReader();
   r.onload = () => {
-    const t = addGPX(deriveTrackName(file.name, r.result), r.result);
-    setStatus(file.name + ' chargé.');
-    autoRenameTrack(t, r.result); // renomme en arrière-plan une fois date/lieu/sport résolus (réseau)
+    try {
+      const t = addGPX(deriveTrackName(file.name, r.result), r.result);
+      setStatus(file.name + ' chargé.');
+      autoRenameTrack(t, r.result); // renomme en arrière-plan une fois date/lieu/sport résolus (réseau)
+    } catch (error) {
+      console.error('Import GPX impossible :', error);
+      setStatus('Import impossible : ' + error.message);
+    }
   };
+  r.onerror = () => setStatus('Import impossible : lecture du fichier échouée.');
   r.readAsText(file, 'UTF-8');
 }
 
@@ -1418,10 +1558,15 @@ async function autoRenameTrack(t, gpxText) {
 
 function parseGPX(text) {
   const xml = new DOMParser().parseFromString(text, 'application/xml');
-  const all = [...xml.getElementsByTagName('*')];
-  return all.filter(p => p.localName === 'trkpt' || p.localName === 'rtept').map(p => {
-    const ele = p.querySelector('ele') || all.find(x => x.parentNode === p && x.localName === 'ele');
-    const time = p.querySelector('time') || all.find(x => x.parentNode === p && x.localName === 'time');
+  // Une seule traversée : chercher un enfant dans TOUT le document pour
+  // chaque point rendait l'import de longs parcours quadratique.
+  const points = [...xml.getElementsByTagName('*')].filter(p => p.localName === 'trkpt' || p.localName === 'rtept');
+  return points.map(p => {
+    let ele = null, time = null;
+    for (const child of p.children) {
+      if (child.localName === 'ele') ele = child;
+      else if (child.localName === 'time') time = child;
+    }
     // Rythme cardiaque : extension standard des montres (Garmin TrackPointExtension
     // et variantes), balise <hr> quel que soit le préfixe de namespace utilisé.
     let hr = null;
@@ -1459,8 +1604,9 @@ function calculateTrackData(points) {
   return { points: trackPts, totalDist: cumDist / 1000, totalDplus: cumDplus, totalElapsedSec: hasTime ? totalT / 1000 : null, minEle: hasEle ? minEle : 0, maxEle: hasEle ? maxEle : 0, hasElevation: hasEle, hasHr };
 }
 
-function addGPX(name, text) {
+function addGPX(name, text, deferRecenter = false) {
   const rawPoints = parseGPX(text);
+  if (rawPoints.length < 2) throw new Error('ce fichier ne contient pas de trace GPX exploitable');
   // Diagnostic FC : si rien n'a été extrait, on regarde si le fichier brut
   // contient quand même des balises qui ressemblent à du rythme cardiaque —
   // ça permet de savoir si c'est un vrai bug d'extraction (balises présentes
@@ -1481,7 +1627,7 @@ function addGPX(name, text) {
   tracks.push(t);
   renderTrackOnMap(t); sortAndRenderTracks();
   if (!activeTrackId) setActiveTrack(t.id); else drawElevationProfile();
-  fitAll();
+  if (!deferRecenter) fitAll();
   return t;
 }
 
@@ -1923,7 +2069,7 @@ function sortAndRenderTracks() {
 
   const container = document.getElementById('tracks');
   container.innerHTML = '';
-  if (!tracks.length) { container.innerHTML = '<div class="empty">Aucun GPX chargé.</div>'; updateTrackLabels(); return; }
+  if (!tracks.length) { container.innerHTML = '<div class="empty">Aucun GPX/FIT chargé.</div>'; updateTrackLabels(); return; }
 
   tracks.forEach(t => {
     const div = document.createElement('div');
