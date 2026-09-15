@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071824">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Tempo Traces — GPX Compare v3.49</title>
+<title>Tempo Traces — GPX Compare v3.50</title>
 
 <script>
 (() => {
@@ -126,12 +126,23 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
   #tb-carte .tb-group:not(:first-child) { border:0; padding:0; }
 }
 @media(max-width:700px){
-  #topbar-tabs { gap:8px; padding:0 8px; }
-  #topbar-tabs h1 { font-size:13px; padding:7px 7px 7px 0; }
+  #topbar-tabs { gap:4px; padding:0 6px; }
+  #topbar-tabs h1 { font-size:13px; padding:6px 6px 6px 0; }
+  .suite-module { display:none }
+  .suite-emblem { width:15px; height:15px; margin-right:3px }
   #appVersion { font-size:9px !important; }
-  .tab-btn { padding:8px 6px; font-size:11px; }
+  .tab-btn { padding:8px 5px; font-size:11px; }
   .tb-panel .tb-group { gap:5px; padding-top:3px; }
   .tb-panel button, .tb-panel select { font-size:11px; padding:5px 7px; }
+  #tb-carte.tb-panel.active { flex-direction:row; flex-wrap:nowrap; align-items:center; gap:5px; padding:5px 8px; }
+  #tb-carte .tb-group { width:auto; padding:0; flex-wrap:nowrap; }
+  #tb-carte .tb-group:first-child { flex:1; min-width:0; }
+  #tb-carte .tb-group:not(:first-child) { border:0; padding:0; }
+  #mapStyleSelect { width:100%; min-width:0; text-overflow:ellipsis; }
+  #tb-carte #btn3D, #tb-carte #fitBtn, #tb-carte .toolbar-more summary { min-height:38px; min-width:38px; justify-content:center; padding:6px; }
+  #tb-carte .toolbar-more summary { display:flex; align-items:center; }
+  .compact-desktop { display:none }
+  #status:empty { display:none }
 }
 
 button, .file-label, select, input[type="text"] {
@@ -396,7 +407,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.49</span><small class="suite-module">Traces · GPX Compare</small></h1>
+    <h1><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.50</span><small class="suite-module">Traces · GPX Compare</small></h1>
     <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
     <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
     <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
@@ -432,9 +443,9 @@ body.cinema-mode #cinema-watermark { display:block; }
       </select>
     </div>
     <div class="tb-group">
-      <button id="btn3D">📐 3D</button>
-      <button id="fitBtn">🎯 Recentrer</button>
-      <details class="toolbar-more"><summary>⚙️ Affichage</summary><div class="toolbar-menu">
+      <button id="btn3D" title="Activer ou désactiver la 3D">📐 <span class="compact-desktop">3D</span></button>
+      <button id="fitBtn" title="Recentrer la carte" aria-label="Recentrer la carte">🎯 <span class="compact-desktop">Recentrer</span></button>
+      <details class="toolbar-more"><summary aria-label="Options d'affichage" title="Options d'affichage">⚙️ <span class="compact-desktop">Affichage</span></summary><div class="toolbar-menu">
         <button id="btnMapFocus" title="Masquer ou afficher le profil pour agrandir la carte">↕️ Carte large</button>
         <button id="btnFullscreen">⛶ Plein écran</button>
       </div></details>
@@ -478,7 +489,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.49</div>
+      <div id="cinema-watermark">GPX Compare v3.50</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
