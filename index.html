@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071824">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Tempo Traces — GPX Compare v3.50</title>
+<title>Tempo Traces — GPX Compare v3.51</title>
 
 <script>
 (() => {
@@ -76,10 +76,10 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
 }
 .suite-emblem{display:inline-block;width:17px;height:17px;margin-right:7px;border:4px solid var(--accent);border-right-color:transparent;border-radius:50%;transform:rotate(-34deg);vertical-align:-4px}
 .suite-module{display:block;margin-left:28px;color:var(--text-sub);font-size:8px;line-height:1;text-transform:uppercase;letter-spacing:.12em}
-.suite-links{position:sticky;right:0;flex:none;margin-left:auto;background:var(--bg-card)}
-.suite-links summary{padding:7px 10px;border:1px solid var(--border-color);border-radius:8px;color:var(--text-sub);font-size:11px;cursor:pointer;list-style:none}
+.suite-links{position:relative;flex:none;background:var(--bg-card)}
+.suite-links summary{display:block;padding:10px 10px 10px 0;border-right:1px solid var(--border-color);color:var(--accent);font-size:16px;font-weight:700;cursor:pointer;list-style:none}
 .suite-links summary::-webkit-details-marker{display:none}
-.suite-links div{position:fixed;top:42px;right:10px;z-index:3000;width:200px;padding:7px;display:grid;gap:3px;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-panel);box-shadow:0 16px 45px rgba(0,0,0,.32)}
+.suite-links div{position:fixed;top:50px;left:8px;z-index:3000;width:215px;padding:7px;display:grid;gap:3px;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-panel);box-shadow:0 16px 45px rgba(0,0,0,.32)}
 .suite-links a{padding:8px;border-radius:7px;color:var(--text-sub);font-size:12px;text-decoration:none}
 .suite-links a:hover,.suite-links a[aria-current="page"]{background:var(--bg-card);color:var(--text-main)}
 
@@ -127,7 +127,8 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
 }
 @media(max-width:700px){
   #topbar-tabs { gap:4px; padding:0 6px; }
-  #topbar-tabs h1 { font-size:13px; padding:6px 6px 6px 0; }
+  #topbar-tabs .suite-links { position:sticky; left:0; z-index:2; }
+  #topbar-tabs .suite-links summary { font-size:13px; padding:6px 6px 6px 0; }
   .suite-module { display:none }
   .suite-emblem { width:15px; height:15px; margin-right:3px }
   #appVersion { font-size:9px !important; }
@@ -143,6 +144,13 @@ body{display:flex;flex-direction:column;background:var(--bg-main);color:var(--te
   #tb-carte .toolbar-more summary { display:flex; align-items:center; }
   .compact-desktop { display:none }
   #status:empty { display:none }
+  #tb-export.tb-panel.active { flex-direction:row; flex-wrap:nowrap; align-items:center; gap:4px; padding:5px 8px; }
+  #tb-export .tb-group { width:100%; padding:0; flex-wrap:nowrap; justify-content:space-between; }
+  #tb-export .tb-group:not(:first-child) { border:0; padding:0; }
+  #tb-export .tb-group > button, #tb-export .toolbar-more summary { min-height:38px; padding:6px; white-space:nowrap; }
+  #tb-export .toolbar-more summary { display:flex; align-items:center; justify-content:center; min-width:38px; }
+  #tb-export .toolbar-menu { right:0; max-width:calc(100vw - 16px); }
+  .compact-phone { display:inline }
 }
 
 button, .file-label, select, input[type="text"] {
@@ -342,7 +350,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 @media(min-width:1100px){
   #topbar-wrapper { flex-direction:row; align-items:center; min-height:49px; padding-right:8px }
   #topbar-tabs { flex:none; padding:0 4px; gap:5px; overflow:visible }
-  #topbar-tabs h1 { font-size:14px; padding:6px 7px 6px 4px }
+  #topbar-tabs .suite-links summary { font-size:14px; padding:6px 7px 6px 4px }
   .suite-module { font-size:7px }
   .tab-btn { font-size:12px; padding:10px 7px }
   #topbar-wrapper .tb-panel.active { flex:1; min-width:0; flex-direction:row; align-items:center; justify-content:flex-end; padding:4px 3px; gap:6px; flex-wrap:nowrap }
@@ -357,6 +365,8 @@ body.cinema-mode #cinema-watermark { display:block; }
 .toolbar-more summary::-webkit-details-marker { display:none }
 .toolbar-menu { position:absolute; top:calc(100% + 6px); right:0; z-index:2200; display:grid; gap:6px; min-width:195px; padding:8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 12px 32px rgba(0,0,0,.38) }
 .toolbar-menu button, .toolbar-menu select { width:100%; justify-content:flex-start; font-size:12px }
+.compact-phone { display:none }
+@media(max-width:700px){ .compact-phone { display:inline } }
 @media(max-width:1099px){
   .toolbar-more { align-self:flex-start }
   .toolbar-more summary { padding:7px 11px }
@@ -407,15 +417,14 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <h1><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.50</span><small class="suite-module">Traces · GPX Compare</small></h1>
-    <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
-    <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
-    <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
-    <details class="suite-links"><summary>Suite</summary><div>
+    <details class="suite-links"><summary aria-label="Tempo : ouvrir le menu des applications" title="Applications Tempo"><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.51</span><small class="suite-module">Traces · GPX Compare</small></summary><div>
       <a href="https://octopi.tail2fca2d.ts.net:8443/">Entraînement privé</a><a aria-current="page" href="./">Traces GPX</a>
       <a href="https://rmei19.github.io/RunPlanner/">Parcours course</a><a href="https://rmei19.github.io/RoadPlannerBis/">Parcours vélo</a>
       <a href="https://agendamaisonpersonnelremi.netlify.app/">Agenda Maison</a>
     </div></details>
+    <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
+    <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
+    <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
   </div>
 
   <div id="tb-fichiers" class="tb-panel active">
@@ -454,10 +463,10 @@ body.cinema-mode #cinema-watermark { display:block; }
 
   <div id="tb-export" class="tb-panel">
     <div class="tb-group">
-      <button id="btnLiveStats">📊 Infos sortie</button>
-      <button id="btnCinema">🎦 Mode Cinéma</button>
-      <button id="btnExportVideoOpen" style="background:#e53935; border-color:#e53935; color:#fff;">🎬 Exporter Vidéo</button>
-      <details class="toolbar-more"><summary>⚙️ Options</summary><div class="toolbar-menu">
+      <button id="btnLiveStats" aria-label="Informations de la sortie">📊 <span class="compact-desktop">Infos sortie</span><span class="compact-phone">Infos</span></button>
+      <button id="btnCinema" aria-label="Mode cinéma">🎦 <span class="compact-desktop">Mode Cinéma</span><span class="compact-phone">Cinéma</span></button>
+      <button id="btnExportVideoOpen" aria-label="Exporter une vidéo" style="background:#e53935; border-color:#e53935; color:#fff;">🎬 <span class="compact-desktop">Exporter Vidéo</span><span class="compact-phone">Export</span></button>
+      <details class="toolbar-more"><summary aria-label="Options de lecture et d'export" title="Options">⚙️ <span class="compact-desktop">Options</span></summary><div class="toolbar-menu">
         <select id="minimapPosSelect">
           <option value="off" selected>🗺️ Mini-carte : désactivée</option>
           <option value="left">🗺️ Mini-carte : bas-gauche</option>
@@ -489,7 +498,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.50</div>
+      <div id="cinema-watermark">GPX Compare v3.51</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
