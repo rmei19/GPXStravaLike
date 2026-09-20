@@ -23,6 +23,21 @@ tabBtns.forEach(btn => {
   });
 });
 
+// Menus contextuels : un seul ouvert à la fois. Les actions se referment
+// automatiquement après un clic, ce qui évite qu'un menu masque la carte sur
+// téléphone. Les listes déroulantes et curseurs restent ouverts pendant le réglage.
+const toolbarDetails = [...document.querySelectorAll('details.toolbar-more')];
+toolbarDetails.forEach(details => {
+  details.addEventListener('toggle', () => {
+    if (!details.open) return;
+    toolbarDetails.forEach(other => { if (other !== details) other.open = false; });
+  });
+  details.querySelectorAll('.toolbar-menu button').forEach(button => {
+    button.addEventListener('click', () => { setTimeout(() => { details.open = false; }, 0); });
+  });
+});
+tabBtns.forEach(btn => btn.addEventListener('click', () => toolbarDetails.forEach(d => { d.open = false; })));
+
 // MapTiler & Clé
 let MAPTILER_KEY = localStorage.getItem('maptiler_api_key') || '';
 const keyModal = document.getElementById('keyModal');

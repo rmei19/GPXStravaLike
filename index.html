@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071824">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Tempo Traces — GPX Compare v3.53</title>
+<title>Tempo Traces — GPX Compare v3.54</title>
 
 <script>
 (() => {
@@ -379,6 +379,27 @@ body.cinema-mode #cinema-watermark { display:block; }
 .toolbar-more summary::-webkit-details-marker { display:none }
 .toolbar-menu { position:absolute; top:calc(100% + 6px); right:0; z-index:2200; display:grid; gap:6px; min-width:195px; padding:8px; background:var(--bg-panel); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 12px 32px rgba(0,0,0,.38) }
 .toolbar-menu button, .toolbar-menu select { width:100%; justify-content:flex-start; font-size:12px }
+.menu-section-title { margin:3px 2px 0; padding-top:6px; border-top:1px solid var(--border-color); color:var(--text-sub); font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; }
+.menu-section-title:first-child { margin-top:0; padding-top:0; border-top:0; }
+.tab-label-phone { display:none }
+.playback-primary-row { display:flex; align-items:center; gap:8px; width:100%; }
+.playback-primary-row #trackSlider { flex:1; min-width:70px; }
+.play-main { min-width:42px; min-height:38px; justify-content:center; font-size:17px !important; }
+.playback-settings { align-self:auto; }
+.playback-menu { min-width:260px; }
+.playback-menu #speedFactorWrap { width:100%; justify-content:space-between; }
+.playback-menu #speedFactorRange { flex:1; min-width:70px; }
+.playback-menu #animDurationHint { padding:4px 2px 2px; line-height:1.35; white-space:normal; }
+@media(max-width:700px){
+  .tab-label-desktop { display:none }
+  .tab-label-phone { display:inline }
+  .playback-primary-row { gap:5px; }
+  .play-main { min-width:40px; padding:6px 8px; }
+  .playback-settings summary { min-width:40px; justify-content:center; text-align:center; padding:7px 8px; }
+  .playback-menu { position:fixed; left:8px; right:8px; top:auto; bottom:calc(8px + env(safe-area-inset-bottom)); width:auto; max-height:min(68vh,520px); overflow:auto; }
+  #tracker-controls { gap:5px; }
+  #trim-controls { margin-top:2px; }
+}
 .compact-phone { display:none }
 @media(max-width:700px){ .compact-phone { display:inline } }
 @media(max-width:1099px){
@@ -432,26 +453,28 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <details class="suite-links"><summary aria-label="Tempo : ouvrir le menu des applications" title="Applications Tempo"><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.53</span><small class="suite-module">Traces · GPX Compare</small></summary><div>
+    <details class="suite-links"><summary aria-label="Tempo : ouvrir le menu des applications" title="Applications Tempo"><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.54</span><small class="suite-module">Traces · GPX Compare</small></summary><div>
       <a href="https://octopi.tail2fca2d.ts.net:8443/">Entraînement privé</a><a aria-current="page" href="./">Traces GPX</a>
       <a href="https://rmei19.github.io/RunPlanner/">Parcours course</a><a href="https://rmei19.github.io/RoadPlannerBis/">Parcours vélo</a>
       <a href="https://agendamaisonpersonnelremi.netlify.app/">Agenda Maison</a>
     </div></details>
-    <button class="tab-btn active" data-tab="tb-fichiers">📂 Fichiers</button>
-    <button class="tab-btn" data-tab="tb-carte">🗺️ Carte & 3D</button>
-    <button class="tab-btn" data-tab="tb-export">🎬 Lecture & Export</button>
+    <button class="tab-btn active" data-tab="tb-fichiers">📂 <span class="tab-label-desktop">Sorties</span><span class="tab-label-phone">GPX</span></button>
+    <button class="tab-btn" data-tab="tb-carte">🗺️ <span class="tab-label-desktop">Carte</span><span class="tab-label-phone">Carte</span></button>
+    <button class="tab-btn" data-tab="tb-export">🎬 <span class="tab-label-desktop">Vidéo</span><span class="tab-label-phone">Vidéo</span></button>
   </div>
 
   <div id="tb-fichiers" class="tb-panel active">
     <div class="tb-group">
-      <label class="file-label">➕ Charger GPX/FIT <input id="fileInput" type="file" accept=".gpx,.fit" multiple></label>
-      <button id="toggleSide" class="mobile-only">📋 Panneau Sorties</button>
-      <details class="toolbar-more"><summary>⚙️ Options</summary><div class="toolbar-menu">
+      <label class="file-label">➕ <span class="compact-desktop">Charger GPX/FIT</span><span class="compact-phone">Importer</span><input id="fileInput" type="file" accept=".gpx,.fit" multiple></label>
+      <button id="toggleSide" class="mobile-only">📋 Sorties</button>
+      <details class="toolbar-more"><summary>⚙️ <span class="compact-desktop">Gestion</span></summary><div class="toolbar-menu">
+        <div class="menu-section-title">Interface</div>
         <select id="themeSelect" aria-label="Thème de l'interface">
-          <option value="system" selected>💻 Système</option>
-          <option value="dark">🌙 Sombre</option>
-          <option value="light">☀️ Clair</option>
+          <option value="system" selected>💻 Thème système</option>
+          <option value="dark">🌙 Thème sombre</option>
+          <option value="light">☀️ Thème clair</option>
         </select>
+        <div class="menu-section-title">Sorties</div>
         <button id="clearBtn">🗑️ Tout effacer</button>
       </div></details>
     </div>
@@ -469,10 +492,13 @@ body.cinema-mode #cinema-watermark { display:block; }
     <div class="tb-group">
       <button id="btn3D" title="Activer ou désactiver la 3D">📐 <span class="compact-desktop">3D</span></button>
       <button id="fitBtn" title="Recentrer la carte" aria-label="Recentrer la carte">🎯 <span class="compact-desktop">Recentrer</span></button>
-      <details class="toolbar-more"><summary aria-label="Options d'affichage" title="Options d'affichage">⚙️ <span class="compact-desktop">Affichage</span></summary><div class="toolbar-menu">
-        <button id="btnMapFocus" title="Masquer ou afficher le profil pour agrandir la carte">↕️ Carte large</button>
+      <details class="toolbar-more"><summary aria-label="Options de carte" title="Options de carte">⚙️ <span class="compact-desktop">Affichage</span></summary><div class="toolbar-menu">
+        <div class="menu-section-title">Affichage</div>
+        <button id="btnPlaceLabels" class="active" title="Afficher les noms des villes et lieux-dits">📍 Villes & lieux-dits</button>
+        <button id="btnMapFocus" title="Masquer ou afficher le profil pour agrandir la carte">↕️ Agrandir la carte</button>
         <button id="btnFullscreen">⛶ Plein écran</button>
-        <button id="btnPlaceLabels" class="active" title="Afficher les noms des villes et lieux-dits">📍 Lieux</button>
+        <div class="menu-section-title">Cartographie</div>
+        <button id="btnKey">🔑 Clé MapTiler</button>
       </div></details>
     </div>
   </div>
@@ -482,14 +508,14 @@ body.cinema-mode #cinema-watermark { display:block; }
       <button id="btnLiveStats" aria-label="Informations de la sortie">📊 <span class="compact-desktop">Infos sortie</span><span class="compact-phone">Infos</span></button>
       <button id="btnCinema" aria-label="Mode cinéma">🎦 <span class="compact-desktop">Mode Cinéma</span><span class="compact-phone">Cinéma</span></button>
       <button id="btnExportVideoOpen" aria-label="Exporter une vidéo" style="background:#e53935; border-color:#e53935; color:#fff;">🎬 <span class="compact-desktop">Exporter Vidéo</span><span class="compact-phone">Export</span></button>
-      <details class="toolbar-more"><summary aria-label="Options de lecture et d'export" title="Options">⚙️ <span class="compact-desktop">Options</span></summary><div class="toolbar-menu">
+      <details class="toolbar-more"><summary aria-label="Habillage vidéo" title="Habillage vidéo">⚙️ <span class="compact-desktop">Habillage</span></summary><div class="toolbar-menu">
+        <div class="menu-section-title">Surcouches vidéo</div>
         <select id="minimapPosSelect">
           <option value="off" selected>🗺️ Mini-carte : désactivée</option>
           <option value="left">🗺️ Mini-carte : bas-gauche</option>
           <option value="right">🗺️ Mini-carte : bas-droite</option>
         </select>
         <button id="btnMiniProfile" title="Profil de dénivelé au-dessus de la mini-carte">📈 Profil altitude</button>
-        <button id="btnKey">🔑 Clé API</button>
       </div></details>
     </div>
   </div>
@@ -514,7 +540,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.53</div>
+      <div id="cinema-watermark">GPX Compare v3.54</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -530,10 +556,34 @@ body.cinema-mode #cinema-watermark { display:block; }
       </div>
       <div id="canvas-wrap"><canvas id="elevationCanvas"></canvas></div>
       <div id="tracker-controls">
-        <div class="control-group">
-          <button id="btnPlay">▶</button>
-          <button id="btnTrimToggle" title="Rogner le début/la fin de la trace">✂️ Rogner</button>
-          <button id="btnRecalibrateEle" title="Recale l'altitude (souvent imprécise sur les montres) sur le relief de la carte">⛰️ Recaler altitude</button>
+        <div class="playback-primary-row">
+          <button id="btnPlay" class="play-main" title="Lecture / pause">▶</button>
+          <input type="range" id="trackSlider" min="0" max="1" value="0" step="0.001" disabled>
+          <details id="playbackSettings" class="toolbar-more playback-settings"><summary aria-label="Réglages de la sortie" title="Réglages">⚙️ <span class="compact-desktop">Réglages</span></summary><div class="toolbar-menu playback-menu">
+            <div class="menu-section-title">Trace</div>
+            <button id="btnTrimToggle" title="Rogner le début/la fin de la trace">✂️ Rogner début / fin</button>
+            <button id="btnRecalibrateEle" title="Recale l'altitude sur le relief de la carte">⛰️ Recaler l'altitude</button>
+            <div class="menu-section-title">Animation</div>
+            <select id="animDurationSelect">
+              <option value="auto" selected>🤖 Durée automatique</option>
+              <option value="15">⏱️ 15 secondes</option>
+              <option value="30">⏱️ 30 secondes</option>
+              <option value="60">⏱️ 1 minute</option>
+              <option value="120">⏱️ 2 minutes</option>
+              <option value="180">⏱️ 3 minutes</option>
+            </select>
+            <label id="speedFactorWrap" title="Facteur multiplicatif de la durée automatique">
+              <span>Vitesse vidéo · ×<b id="speedFactorValue">1.0</b></span>
+              <input id="speedFactorRange" type="range" min="0.5" max="2" step="0.1" value="1">
+            </label>
+            <select id="camModeSelect">
+              <option value="threshold" selected>🎯 Caméra : seuil 25°</option>
+              <option value="smooth">🌀 Caméra : fluide</option>
+              <option value="fixed">🔒 Caméra : fixe</option>
+              <option value="off">🚫 Caméra : libre</option>
+            </select>
+            <div id="animDurationHint">Auto : charge une sortie pour calculer la durée.</div>
+          </div></details>
         </div>
         <div id="trim-controls" class="hidden">
           <div class="trim-row">
@@ -551,28 +601,6 @@ body.cinema-mode #cinema-watermark { display:block; }
             <button id="btnTrimReset">↺ Réinitialiser</button>
           </div>
         </div>
-        <input type="range" id="trackSlider" min="0" max="1" value="0" step="0.001" disabled>
-        <div class="control-group animation-duration-group">
-          <select id="animDurationSelect">
-            <option value="auto" selected>🤖 Durée auto</option>
-            <option value="15">15 sec</option>
-            <option value="30">30 sec</option>
-            <option value="60">1 min</option>
-            <option value="120">2 min</option>
-            <option value="180">3 min</option>
-          </select>
-          <label id="speedFactorWrap" title="Facteur multiplicatif de la durée automatique">
-            <span>×<b id="speedFactorValue">1.0</b></span>
-            <input id="speedFactorRange" type="range" min="0.5" max="2" step="0.1" value="1">
-          </label>
-          <select id="camModeSelect">
-            <option value="threshold" selected>🎯 Cam: Seuil (25°)</option>
-            <option value="smooth">🌀 Cam: Fluide</option>
-            <option value="fixed">🔒 Cam: Fixe</option>
-            <option value="off">🚫 Cam: Libre</option>
-          </select>
-        </div>
-        <div id="animDurationHint">Auto : charge une sortie pour calculer la durée.</div>
         <div id="tracker-stats-bar">
           <span>Dist: <b id="stDist">0.0 km</b></span>
           <span>Alt: <b id="stAlt">-- m</b></span>
@@ -620,6 +648,21 @@ tabBtns.forEach(btn => {
     setTimeout(() => { if(map) map.resize(); }, 50);
   });
 });
+
+// Menus contextuels : un seul ouvert à la fois. Les actions se referment
+// automatiquement après un clic, ce qui évite qu'un menu masque la carte sur
+// téléphone. Les listes déroulantes et curseurs restent ouverts pendant le réglage.
+const toolbarDetails = [...document.querySelectorAll('details.toolbar-more')];
+toolbarDetails.forEach(details => {
+  details.addEventListener('toggle', () => {
+    if (!details.open) return;
+    toolbarDetails.forEach(other => { if (other !== details) other.open = false; });
+  });
+  details.querySelectorAll('.toolbar-menu button').forEach(button => {
+    button.addEventListener('click', () => { setTimeout(() => { details.open = false; }, 0); });
+  });
+});
+tabBtns.forEach(btn => btn.addEventListener('click', () => toolbarDetails.forEach(d => { d.open = false; })));
 
 // MapTiler & Clé
 let MAPTILER_KEY = localStorage.getItem('maptiler_api_key') || '';
