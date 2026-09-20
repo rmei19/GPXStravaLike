@@ -764,7 +764,7 @@ async function startRecording() {
   const exportQuality = qualitySettings[quality] || qualitySettings.standard;
   const outputFps = exportQuality.outputFps; // 30fps par défaut, plus sûr et plus fluide que le faux "haute qualité = 60fps" sur mobile
   const bitrate = exportQuality.bitrate;
-  const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
+  const durationSec = getSelectedAnimationDurationSec(activeTr);
 
   isRecording = true;
   document.body.classList.add('is-recording');
@@ -1190,6 +1190,63 @@ function applyActivityUI(t) {
   if (cinemaIconEl) { cinemaIconEl.textContent = icon; cinemaIconEl.title = label; }
 }
 
+const animDurationSelect = document.getElementById('animDurationSelect');
+const speedFactorWrap = document.getElementById('speedFactorWrap');
+const speedFactorRange = document.getElementById('speedFactorRange');
+const speedFactorValue = document.getElementById('speedFactorValue');
+const animDurationHint = document.getElementById('animDurationHint');
+
+function formatVideoDurationShort(sec) {
+  sec = Math.max(1, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  if (m <= 0) return `${s} s`;
+  if (s === 0) return `${m} min`;
+  return `${m} min ${String(s).padStart(2, '0')} s`;
+}
+
+function getAutoDurationConfig(track) {
+  const activity = getTrackActivity(track);
+  let kmPerMinute = 10;
+  if (activity.kind === 'road-bike') kmPerMinute = 20;
+  else if (activity.kind === 'trail-run') kmPerMinute = 8;
+  else if (activity.kind === 'road-run') kmPerMinute = 10;
+  const timeMinutes = track?.data?.totalElapsedSec ? (track.data.totalElapsedSec / 3600) : 0; // 1h réelle = 1min vidéo
+  const distanceMinutes = track?.data?.totalDist ? (track.data.totalDist / kmPerMinute) : 0;
+  const baseMinutes = Math.max(timeMinutes, distanceMinutes, 0.25);
+  const factor = parseFloat(speedFactorRange?.value || '1') || 1;
+  const rawSec = baseMinutes * 60 * factor;
+  const durationSec = Math.max(15, Math.min(300, Math.round(rawSec)));
+  return { durationSec, factor, kmPerMinute, timeMinutes, distanceMinutes, activity };
+}
+
+function getSelectedAnimationDurationSec(track = null) {
+  const value = animDurationSelect?.value || '30';
+  if (value === 'auto') {
+    const tr = track || tracks.find(t => t.id === activeTrackId);
+    return getAutoDurationConfig(tr).durationSec;
+  }
+  const manual = parseFloat(value);
+  return Number.isFinite(manual) && manual > 0 ? manual : 30;
+}
+
+function updateAnimationDurationUI() {
+  if (speedFactorValue) speedFactorValue.textContent = (parseFloat(speedFactorRange?.value || '1') || 1).toFixed(1);
+  const autoMode = animDurationSelect?.value === 'auto';
+  if (speedFactorWrap) speedFactorWrap.style.opacity = autoMode ? '1' : '0.55';
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!animDurationHint) return;
+  if (!tr) { animDurationHint.textContent = autoMode ? 'Auto : charge une sortie pour calculer la durée.' : 'Durée manuelle.'; return; }
+  if (!autoMode) { animDurationHint.textContent = `Durée manuelle : ${formatVideoDurationShort(getSelectedAnimationDurationSec(tr))}.`; return; }
+  const cfg = getAutoDurationConfig(tr);
+  const timeTxt = tr.data.totalElapsedSec ? `temps ${formatDuration(tr.data.totalElapsedSec)} → ${formatVideoDurationShort(cfg.timeMinutes * 60)}` : 'temps indisponible';
+  const distTxt = `${tr.data.totalDist.toFixed(1)} km → ${formatVideoDurationShort(cfg.distanceMinutes * 60)}`;
+  const baseTxt = cfg.timeMinutes >= cfg.distanceMinutes ? 'temps' : 'distance';
+  animDurationHint.textContent = `Auto ${cfg.activity.icon} : max(${timeTxt}, ${distTxt}) = ${formatVideoDurationShort(Math.max(cfg.timeMinutes, cfg.distanceMinutes) * 60)} · facteur ×${cfg.factor.toFixed(1)} → ${formatVideoDurationShort(cfg.durationSec)}.`;
+}
+
+animDurationSelect?.addEventListener('change', updateAnimationDurationUI);
+speedFactorRange?.addEventListener('input', updateAnimationDurationUI);
+
 function extractFirstDate(gpxText) {
   try {
     const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
@@ -1242,6 +1299,7 @@ async function autoRenameTrack(t, gpxText) {
   if (t.id === activeTrackId) {
     document.getElementById('active-track-name').textContent = t.name;
     applyActivityUI(t);
+    updateAnimationDurationUI();
   }
   sortAndRenderTracks();
 }
@@ -1337,6 +1395,7 @@ function applyTrim(t) {
   }
   if (t.id === activeTrackId) {
     document.getElementById('active-track-stats').textContent = `${t.data.totalDist.toFixed(1)} km · +${Math.round(t.data.totalDplus)}m`;
+    updateAnimationDurationUI();
     currentRatio = 0;
     // Resynchronise la caméra sur l'état réel de la carte avant de la
     // recentrer : sinon, tant que la sortie n'a jamais été jouée une fois
@@ -1486,11 +1545,13 @@ function setActiveTrack(id) {
   document.getElementById('active-track-name').textContent = tr.name;
   applyActivityUI(tr);
   document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m`;
+  updateAnimationDurationUI();
   document.getElementById('trimStartSlider').value = tr.trimStart || 0;
   document.getElementById('trimEndSlider').value = tr.trimEnd || 0;
   document.getElementById('trimStartValue').textContent = (tr.trimStart || 0) + '%';
   document.getElementById('trimEndValue').textContent = (tr.trimEnd || 0) + '%';
   updateTrimInfo(tr);
+  updateAnimationDurationUI();
   sortAndRenderTracks(); drawElevationProfile(); drawMinimapRoute(); drawMiniProfileRoute(); setTrackPositionByRatio(0);
 }
 
@@ -1641,7 +1702,7 @@ function setTrackPositionByRatio(ratio) {
 function playStep(ts) {
   if (!isPlaying) return;
   if (!lastFrameTime) lastFrameTime = ts;
-  currentRatio += ((ts - lastFrameTime) / 1000) / parseFloat(document.getElementById('animDurationSelect').value);
+  currentRatio += ((ts - lastFrameTime) / 1000) / getSelectedAnimationDurationSec(tracks.find(t => t.id === activeTrackId));
   lastFrameTime = ts;
   if (currentRatio >= 1) { setTrackPositionByRatio(1); pauseTrack(); return; }
   setTrackPositionByRatio(currentRatio);
@@ -1781,6 +1842,7 @@ function sortAndRenderTracks() {
         if (t.id === activeTrackId) {
           document.getElementById('active-track-name').textContent = t.name;
           applyActivityUI(t);
+          updateAnimationDurationUI();
         }
         sortAndRenderTracks();
       }
@@ -1852,6 +1914,7 @@ document.getElementById('fitBtn').onclick = fitAll;
 document.getElementById('clearBtn').onclick = () => {
   tracks.forEach(t => { if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getLayer(t.id+'-hit'))map.removeLayer(t.id+'-hit');if(map.getSource(t.id))map.removeSource(t.id);} });
   tracks = []; activeTrackId = null; sortAndRenderTracks(); drawElevationProfile();
+  updateAnimationDurationUI();
   document.getElementById('active-track-name').textContent = 'Aucune sortie active';
   document.getElementById('active-track-stats').textContent = '';
   applyActivityUI(null);
@@ -1920,5 +1983,6 @@ function setStatus(s) {
   }
 }
 
+updateAnimationDurationUI();
 initMap();
 resizeCanvas();

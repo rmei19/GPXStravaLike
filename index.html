@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071824">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Tempo Traces — GPX Compare v3.52</title>
+<title>Tempo Traces — GPX Compare v3.53</title>
 
 <script>
 (() => {
@@ -246,6 +246,16 @@ body.map-focus #canvas-wrap { display:none }
 .control-group button.active { background:var(--accent); color:#fff }
 #trackSlider { flex:1; min-width:120px; height:20px; accent-color:var(--accent); cursor:pointer }
 #tracker-stats-bar { display:flex; gap:10px; font-size:11px; color:var(--text-sub); font-weight:500; width:100%; overflow-x:auto; white-space:nowrap; padding-top:2px }
+.animation-duration-group { flex-wrap:wrap; }
+#speedFactorWrap { display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--text-sub); background:var(--bg-panel); border:1px solid var(--border-color); border-radius:6px; padding:5px 8px; }
+#speedFactorWrap input[type="range"] { width:92px; height:24px; accent-color:var(--accent); }
+#animDurationHint { width:100%; font-size:11px; color:var(--text-sub); padding-left:2px; }
+@media(max-width:700px){
+  .animation-duration-group { width:100%; }
+  #speedFactorWrap { min-width:0; flex:1; justify-content:space-between; }
+  #speedFactorWrap input[type="range"] { width:78px; }
+  #animDurationHint { font-size:10px; }
+}
 
 /* Side panel */
 #side { width:280px; max-width:30%; background:var(--bg-panel); color:var(--text-main); border-left:1px solid var(--border-color); padding:10px; display:flex; flex-direction:column; z-index:1500; transition: transform 0.3s ease; }
@@ -422,7 +432,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <details class="suite-links"><summary aria-label="Tempo : ouvrir le menu des applications" title="Applications Tempo"><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.52</span><small class="suite-module">Traces · GPX Compare</small></summary><div>
+    <details class="suite-links"><summary aria-label="Tempo : ouvrir le menu des applications" title="Applications Tempo"><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.53</span><small class="suite-module">Traces · GPX Compare</small></summary><div>
       <a href="https://octopi.tail2fca2d.ts.net:8443/">Entraînement privé</a><a aria-current="page" href="./">Traces GPX</a>
       <a href="https://rmei19.github.io/RunPlanner/">Parcours course</a><a href="https://rmei19.github.io/RoadPlannerBis/">Parcours vélo</a>
       <a href="https://agendamaisonpersonnelremi.netlify.app/">Agenda Maison</a>
@@ -504,7 +514,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.52</div>
+      <div id="cinema-watermark">GPX Compare v3.53</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
@@ -542,13 +552,19 @@ body.cinema-mode #cinema-watermark { display:block; }
           </div>
         </div>
         <input type="range" id="trackSlider" min="0" max="1" value="0" step="0.001" disabled>
-        <div class="control-group">
+        <div class="control-group animation-duration-group">
           <select id="animDurationSelect">
+            <option value="auto" selected>🤖 Durée auto</option>
             <option value="15">15 sec</option>
-            <option value="30" selected>30 sec</option>
+            <option value="30">30 sec</option>
             <option value="60">1 min</option>
             <option value="120">2 min</option>
+            <option value="180">3 min</option>
           </select>
+          <label id="speedFactorWrap" title="Facteur multiplicatif de la durée automatique">
+            <span>×<b id="speedFactorValue">1.0</b></span>
+            <input id="speedFactorRange" type="range" min="0.5" max="2" step="0.1" value="1">
+          </label>
           <select id="camModeSelect">
             <option value="threshold" selected>🎯 Cam: Seuil (25°)</option>
             <option value="smooth">🌀 Cam: Fluide</option>
@@ -556,6 +572,7 @@ body.cinema-mode #cinema-watermark { display:block; }
             <option value="off">🚫 Cam: Libre</option>
           </select>
         </div>
+        <div id="animDurationHint">Auto : charge une sortie pour calculer la durée.</div>
         <div id="tracker-stats-bar">
           <span>Dist: <b id="stDist">0.0 km</b></span>
           <span>Alt: <b id="stAlt">-- m</b></span>
@@ -1345,7 +1362,7 @@ async function startRecording() {
   const exportQuality = qualitySettings[quality] || qualitySettings.standard;
   const outputFps = exportQuality.outputFps; // 30fps par défaut, plus sûr et plus fluide que le faux "haute qualité = 60fps" sur mobile
   const bitrate = exportQuality.bitrate;
-  const durationSec = parseFloat(document.getElementById('animDurationSelect').value);
+  const durationSec = getSelectedAnimationDurationSec(activeTr);
 
   isRecording = true;
   document.body.classList.add('is-recording');
@@ -1771,6 +1788,63 @@ function applyActivityUI(t) {
   if (cinemaIconEl) { cinemaIconEl.textContent = icon; cinemaIconEl.title = label; }
 }
 
+const animDurationSelect = document.getElementById('animDurationSelect');
+const speedFactorWrap = document.getElementById('speedFactorWrap');
+const speedFactorRange = document.getElementById('speedFactorRange');
+const speedFactorValue = document.getElementById('speedFactorValue');
+const animDurationHint = document.getElementById('animDurationHint');
+
+function formatVideoDurationShort(sec) {
+  sec = Math.max(1, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  if (m <= 0) return `${s} s`;
+  if (s === 0) return `${m} min`;
+  return `${m} min ${String(s).padStart(2, '0')} s`;
+}
+
+function getAutoDurationConfig(track) {
+  const activity = getTrackActivity(track);
+  let kmPerMinute = 10;
+  if (activity.kind === 'road-bike') kmPerMinute = 20;
+  else if (activity.kind === 'trail-run') kmPerMinute = 8;
+  else if (activity.kind === 'road-run') kmPerMinute = 10;
+  const timeMinutes = track?.data?.totalElapsedSec ? (track.data.totalElapsedSec / 3600) : 0; // 1h réelle = 1min vidéo
+  const distanceMinutes = track?.data?.totalDist ? (track.data.totalDist / kmPerMinute) : 0;
+  const baseMinutes = Math.max(timeMinutes, distanceMinutes, 0.25);
+  const factor = parseFloat(speedFactorRange?.value || '1') || 1;
+  const rawSec = baseMinutes * 60 * factor;
+  const durationSec = Math.max(15, Math.min(300, Math.round(rawSec)));
+  return { durationSec, factor, kmPerMinute, timeMinutes, distanceMinutes, activity };
+}
+
+function getSelectedAnimationDurationSec(track = null) {
+  const value = animDurationSelect?.value || '30';
+  if (value === 'auto') {
+    const tr = track || tracks.find(t => t.id === activeTrackId);
+    return getAutoDurationConfig(tr).durationSec;
+  }
+  const manual = parseFloat(value);
+  return Number.isFinite(manual) && manual > 0 ? manual : 30;
+}
+
+function updateAnimationDurationUI() {
+  if (speedFactorValue) speedFactorValue.textContent = (parseFloat(speedFactorRange?.value || '1') || 1).toFixed(1);
+  const autoMode = animDurationSelect?.value === 'auto';
+  if (speedFactorWrap) speedFactorWrap.style.opacity = autoMode ? '1' : '0.55';
+  const tr = tracks.find(t => t.id === activeTrackId);
+  if (!animDurationHint) return;
+  if (!tr) { animDurationHint.textContent = autoMode ? 'Auto : charge une sortie pour calculer la durée.' : 'Durée manuelle.'; return; }
+  if (!autoMode) { animDurationHint.textContent = `Durée manuelle : ${formatVideoDurationShort(getSelectedAnimationDurationSec(tr))}.`; return; }
+  const cfg = getAutoDurationConfig(tr);
+  const timeTxt = tr.data.totalElapsedSec ? `temps ${formatDuration(tr.data.totalElapsedSec)} → ${formatVideoDurationShort(cfg.timeMinutes * 60)}` : 'temps indisponible';
+  const distTxt = `${tr.data.totalDist.toFixed(1)} km → ${formatVideoDurationShort(cfg.distanceMinutes * 60)}`;
+  const baseTxt = cfg.timeMinutes >= cfg.distanceMinutes ? 'temps' : 'distance';
+  animDurationHint.textContent = `Auto ${cfg.activity.icon} : max(${timeTxt}, ${distTxt}) = ${formatVideoDurationShort(Math.max(cfg.timeMinutes, cfg.distanceMinutes) * 60)} · facteur ×${cfg.factor.toFixed(1)} → ${formatVideoDurationShort(cfg.durationSec)}.`;
+}
+
+animDurationSelect?.addEventListener('change', updateAnimationDurationUI);
+speedFactorRange?.addEventListener('input', updateAnimationDurationUI);
+
 function extractFirstDate(gpxText) {
   try {
     const xml = new DOMParser().parseFromString(gpxText, 'application/xml');
@@ -1823,6 +1897,7 @@ async function autoRenameTrack(t, gpxText) {
   if (t.id === activeTrackId) {
     document.getElementById('active-track-name').textContent = t.name;
     applyActivityUI(t);
+    updateAnimationDurationUI();
   }
   sortAndRenderTracks();
 }
@@ -1918,6 +1993,7 @@ function applyTrim(t) {
   }
   if (t.id === activeTrackId) {
     document.getElementById('active-track-stats').textContent = `${t.data.totalDist.toFixed(1)} km · +${Math.round(t.data.totalDplus)}m`;
+    updateAnimationDurationUI();
     currentRatio = 0;
     // Resynchronise la caméra sur l'état réel de la carte avant de la
     // recentrer : sinon, tant que la sortie n'a jamais été jouée une fois
@@ -2067,11 +2143,13 @@ function setActiveTrack(id) {
   document.getElementById('active-track-name').textContent = tr.name;
   applyActivityUI(tr);
   document.getElementById('active-track-stats').textContent = `${tr.data.totalDist.toFixed(1)} km · +${Math.round(tr.data.totalDplus)}m`;
+  updateAnimationDurationUI();
   document.getElementById('trimStartSlider').value = tr.trimStart || 0;
   document.getElementById('trimEndSlider').value = tr.trimEnd || 0;
   document.getElementById('trimStartValue').textContent = (tr.trimStart || 0) + '%';
   document.getElementById('trimEndValue').textContent = (tr.trimEnd || 0) + '%';
   updateTrimInfo(tr);
+  updateAnimationDurationUI();
   sortAndRenderTracks(); drawElevationProfile(); drawMinimapRoute(); drawMiniProfileRoute(); setTrackPositionByRatio(0);
 }
 
@@ -2222,7 +2300,7 @@ function setTrackPositionByRatio(ratio) {
 function playStep(ts) {
   if (!isPlaying) return;
   if (!lastFrameTime) lastFrameTime = ts;
-  currentRatio += ((ts - lastFrameTime) / 1000) / parseFloat(document.getElementById('animDurationSelect').value);
+  currentRatio += ((ts - lastFrameTime) / 1000) / getSelectedAnimationDurationSec(tracks.find(t => t.id === activeTrackId));
   lastFrameTime = ts;
   if (currentRatio >= 1) { setTrackPositionByRatio(1); pauseTrack(); return; }
   setTrackPositionByRatio(currentRatio);
@@ -2362,6 +2440,7 @@ function sortAndRenderTracks() {
         if (t.id === activeTrackId) {
           document.getElementById('active-track-name').textContent = t.name;
           applyActivityUI(t);
+          updateAnimationDurationUI();
         }
         sortAndRenderTracks();
       }
@@ -2433,6 +2512,7 @@ document.getElementById('fitBtn').onclick = fitAll;
 document.getElementById('clearBtn').onclick = () => {
   tracks.forEach(t => { if(map){if(map.getLayer(t.id))map.removeLayer(t.id);if(map.getLayer(t.id+'-hit'))map.removeLayer(t.id+'-hit');if(map.getSource(t.id))map.removeSource(t.id);} });
   tracks = []; activeTrackId = null; sortAndRenderTracks(); drawElevationProfile();
+  updateAnimationDurationUI();
   document.getElementById('active-track-name').textContent = 'Aucune sortie active';
   document.getElementById('active-track-stats').textContent = '';
   applyActivityUI(null);
@@ -2501,6 +2581,7 @@ function setStatus(s) {
   }
 }
 
+updateAnimationDurationUI();
 initMap();
 resizeCanvas();
 </script>
