@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#071824">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<title>Tempo Traces — GPX Compare v3.54</title>
+<title>Tempo Traces — GPX Compare v3.55</title>
 
 <script>
 (() => {
@@ -353,12 +353,24 @@ body.cinema-mode #cinema-watermark { display:block; }
 .mobile-only { display:none }
 
 @media(max-width:700px){
+  :root { --side-peek-height: 54px; }
   .mobile-only { display:inline-block }
   #canvas-wrap { height:62px }
-  #side { position:fixed; left:0; right:0; bottom:0; width:100%; max-width:none; height:60vh; border:0; border-top:1px solid var(--border-color); border-radius:14px 14px 0 0; padding:8px 10px calc(8px + env(safe-area-inset-bottom)); box-shadow:0 -4px 18px rgba(0,0,0,.5); transform:translateY(calc(100% - 38px)); transition:transform .3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+  /* Le tiroir Sorties est fixe. On réserve donc réellement sa hauteur
+     repliée dans la vue principale : sinon il recouvre la dernière ligne
+     du lecteur (stats / progression), surtout avec les barres du navigateur
+     Android. */
+  #main-view { padding-bottom:var(--side-peek-height); }
+  #side { position:fixed; left:0; right:0; bottom:0; width:100%; max-width:none; height:60vh; border:0; border-top:1px solid var(--border-color); border-radius:14px 14px 0 0; padding:8px 10px calc(8px + env(safe-area-inset-bottom)); box-shadow:0 -4px 18px rgba(0,0,0,.5); transform:translateY(calc(100% - var(--side-peek-height))); transition:transform .3s cubic-bezier(0.4, 0, 0.2, 1); }
   #side.open { transform:translateY(0) }
   #sideHeader { cursor:pointer; padding-bottom:4px }
   #sideHeaderHandle { display:block; width:36px; height:4px; border-radius:4px; background:var(--text-sub); margin:0 auto 6px }
+
+  /* En mode replié, seule la poignée/titre doit occuper le bandeau visible.
+     Les outils du panneau restent dans le tiroir et ne peuvent plus dépasser. */
+  #side:not(.open) #side-tools,
+  #side:not(.open) #stats { visibility:hidden; pointer-events:none; }
 }
 /* PC : navigation et commandes sur UNE ligne, le reste dans des menus. */
 @media(min-width:1100px){
@@ -396,7 +408,7 @@ body.cinema-mode #cinema-watermark { display:block; }
   .playback-primary-row { gap:5px; }
   .play-main { min-width:40px; padding:6px 8px; }
   .playback-settings summary { min-width:40px; justify-content:center; text-align:center; padding:7px 8px; }
-  .playback-menu { position:fixed; left:8px; right:8px; top:auto; bottom:calc(8px + env(safe-area-inset-bottom)); width:auto; max-height:min(68vh,520px); overflow:auto; }
+  .playback-menu { position:fixed; left:8px; right:8px; top:auto; bottom:calc(var(--side-peek-height, 54px) + 8px + env(safe-area-inset-bottom)); width:auto; max-height:min(68vh,520px); overflow:auto; }
   #tracker-controls { gap:5px; }
   #trim-controls { margin-top:2px; }
 }
@@ -453,7 +465,7 @@ body.cinema-mode #cinema-watermark { display:block; }
 <!-- TOPBAR EN ONGLETS -->
 <div id="topbar-wrapper">
   <div id="topbar-tabs">
-    <details class="suite-links"><summary aria-label="Tempo : ouvrir le menu des applications" title="Applications Tempo"><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.54</span><small class="suite-module">Traces · GPX Compare</small></summary><div>
+    <details class="suite-links"><summary aria-label="Tempo : ouvrir le menu des applications" title="Applications Tempo"><i class="suite-emblem" aria-hidden="true"></i>Tempo <span id="appVersion" style="font-size:10px;color:var(--text-sub);border:none;padding:0;font-weight:400;vertical-align:middle">v3.55</span><small class="suite-module">Traces · GPX Compare</small></summary><div>
       <a href="https://octopi.tail2fca2d.ts.net:8443/">Entraînement privé</a><a aria-current="page" href="./">Traces GPX</a>
       <a href="https://rmei19.github.io/RunPlanner/">Parcours course</a><a href="https://rmei19.github.io/RoadPlannerBis/">Parcours vélo</a>
       <a href="https://agendamaisonpersonnelremi.netlify.app/">Agenda Maison</a>
@@ -540,7 +552,7 @@ body.cinema-mode #cinema-watermark { display:block; }
       <div id="map"></div>
       <div id="mini-profile-wrap" class="hidden"><canvas id="miniProfileCanvas"></canvas></div>
       <div id="minimap-wrap" class="hidden"><canvas id="minimapCanvas"></canvas></div>
-      <div id="cinema-watermark">GPX Compare v3.54</div>
+      <div id="cinema-watermark">GPX Compare v3.55</div>
       <div id="cinema-live-stats" class="hidden"><span id="c-dist2">0.0 km</span><span id="c-temps2">--:--</span><span id="c-dplus2">0 m</span><span id="c-pente2">--%</span><span id="c-allure2">--'--/km</span><span id="c-hr2">-- bpm</span></div>
       <div id="cinema-overlay">
         <button id="btnCinemaPlay">▶ Jouer</button>
